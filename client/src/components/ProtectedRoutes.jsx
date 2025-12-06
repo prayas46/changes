@@ -11,10 +11,13 @@ export const ProtectedRoute = ({children}) => {
     return children;
 }
 export const AuthenticatedUser = ({children}) => {
-    const {isAuthenticated} = useSelector(store=>store.auth);
+    const {isAuthenticated, user} = useSelector(store=>store.auth);
 
     if(isAuthenticated){
-        return <Navigate to="/"/>
+        if(user?.role === "instructor"){
+            return <Navigate to="/admin/dashboard"/>;
+        }
+        return <Navigate to="/"/>;
     }
 
     return children;

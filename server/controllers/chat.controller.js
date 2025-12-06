@@ -69,9 +69,14 @@ export const sendMessage = async (req, res, next) => {
     }
     await chat.save();
 
+    const messagePayload = {
+      ...newMessage.toObject(),
+      chat: chat._id,
+    };
+
     // Emit socket event
-    emitSocketEvent(req, receiverId.toString(), "newMessage", newMessage);
-    emitSocketEvent(req, senderId.toString(), "newMessage", newMessage);
+    emitSocketEvent(req, receiverId.toString(), "newMessage", messagePayload);
+    emitSocketEvent(req, senderId.toString(), "newMessage", messagePayload);
 
     res.status(201).json({
       success: true,
@@ -86,7 +91,7 @@ export const sendMessage = async (req, res, next) => {
 export const getChats = async (req, res) => {
   try {
     //const user = await User.findById(req.id);
-    const user = await User.findById(req.user);     
+    const user = req.user;    
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -102,13 +107,19 @@ export const getChats = async (req, res) => {
       chats = await Chat.find({ student: userId })
         .populate("instructor", "name avatar")
         .populate("course", "title courseTitle")
-        .populate("lastMessage")
+        .populate({
+          path: "lastMessage",
+          populate: { path: "receiver", select: "_id" },
+        })
         .sort({ updatedAt: -1 });
     } else if (role === "instructor") {
       chats = await Chat.find({ instructor: userId })
         .populate("student", "name avatar")
         .populate("course", "title courseTitle")
-        .populate("lastMessage")
+        .populate({
+          path: "lastMessage",
+          populate: { path: "receiver", select: "_id" },
+        })
         .sort({ updatedAt: -1 });
     }
 
@@ -179,6 +190,21 @@ export const markAsRead = async (req, res) => {
       { _id: { $in: messageIds } },
       { $set: { read: true } }
     );
+
+    const messages = await Message.find({ _id: { $in: messageIds } });
+
+    const senderMessagesMap = messages.reduce((acc, msg) => {
+      const senderId = msg.sender.toString();
+      if (!acc[senderId]) {
+        acc[senderId] = [];
+      }
+      acc[senderId].push(msg._id.toString());
+      return acc;
+    }, {});
+
+    Object.entries(senderMessagesMap).forEach(([senderId, ids]) => {
+      emitSocketEvent(req, senderId, "messagesRead", { messageIds: ids });
+    });
 
     res.status(200).json({
       success: true,
@@ -268,8 +294,13 @@ export const sendFileMessage = async (req, res, next) => {
     }
     await chat.save();
 
-    emitSocketEvent(req, receiverId.toString(), "newMessage", newMessage);
-    emitSocketEvent(req, senderId.toString(), "newMessage", newMessage);
+    const messagePayload = {
+      ...newMessage.toObject(),
+      chat: chat._id,
+    };
+
+    emitSocketEvent(req, receiverId.toString(), "newMessage", messagePayload);
+    emitSocketEvent(req, senderId.toString(), "newMessage", messagePayload);
 
     res.status(201).json({
       success: true,
@@ -278,6 +309,116 @@ export const sendFileMessage = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+export const deleteMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id.toString();
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: "Message not found",
+      });
+    }
+
+    if (message.sender.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete your own messages",
+      });
+    }
+
+    const chat = await Chat.findOne({ messages: messageId });
+
+    if (chat) {
+      chat.messages.pull(messageId);
+
+      if (
+        chat.lastMessage &&
+        chat.lastMessage.toString() === messageId.toString()
+      ) {
+        if (chat.messages.length > 0) {
+          chat.lastMessage = chat.messages[chat.messages.length - 1];
+        } else {
+          chat.lastMessage = undefined;
+        }
+      }
+
+      chat.updatedAt = Date.now();
+      await chat.save();
+    }
+
+    await Message.findByIdAndDelete(messageId);
+
+    const payload = {
+      messageId,
+      chatId: chat?._id,
+    };
+
+    emitSocketEvent(req, message.sender.toString(), "messageDeleted", payload);
+    emitSocketEvent(req, message.receiver.toString(), "messageDeleted", payload);
+
+    res.status(200).json({
+      success: true,
+      message: "Message deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete message",
+      error: error.message,
+    });
+  }
+};
+
+export const deleteChat = async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const userId = req.user._id.toString();
+
+    const chat = await Chat.findById(chatId);
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: "Chat not found",
+      });
+    }
+
+    if (
+      ![chat.student.toString(), chat.instructor.toString()].includes(userId)
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to delete this chat",
+      });
+    }
+
+    const messageIds = chat.messages;
+
+    if (messageIds && messageIds.length > 0) {
+      await Message.deleteMany({ _id: { $in: messageIds } });
+    }
+
+    await Chat.findByIdAndDelete(chatId);
+
+    const payload = { chatId };
+    emitSocketEvent(req, chat.student.toString(), "chatDeleted", payload);
+    emitSocketEvent(req, chat.instructor.toString(), "chatDeleted", payload);
+
+    res.status(200).json({
+      success: true,
+      message: "Chat deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete chat",
+      error: error.message,
+    });
   }
 };
 

@@ -27,10 +27,12 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
   const [activeChat, setActiveChat] = useState(null);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [socket, setSocket] = useState(null);
+  const [chatsFetched, setChatsFetched] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const emojiPickerRef = useRef(null);
+  const activeChatRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState([]);
@@ -52,6 +54,11 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
 
   const API_BASE_URL =
     import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
+  const SOCKET_BASE_URL =
+    import.meta.env.VITE_SOCKET_URL ||
+    (import.meta.env.VITE_API_URL
+      ? import.meta.env.VITE_API_URL.replace(/\/api\/v1$/, "")
+      : "http://localhost:8080");
 
   // Check for mobile view
   useEffect(() => {
@@ -64,14 +71,20 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
   }, []);
 
   useEffect(() => {
+    activeChatRef.current = activeChat ? activeChat._id : null;
+  }, [activeChat]);
+
+  const chatsRef = useRef([]);
+  useEffect(() => {
+    chatsRef.current = chats;
+  }, [chats]);
+
+  useEffect(() => {
     if (user) {
-      const newSocket = io(
-        import.meta.env.VITE_API_URL || "http://localhost:8080",
-        {
-          withCredentials: true,
-          query: { userId: user._id },
-        }
-      );
+      const newSocket = io(SOCKET_BASE_URL, {
+        withCredentials: true,
+        query: { userId: user._id },
+      });
 
       newSocket.on("connect", () => {
         console.log("Connected to socket server");
@@ -79,16 +92,85 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
       });
 
       newSocket.on("newMessage", (message) => {
-        if (activeChat && activeChat._id === message.chat) {
+        const senderId =
+          typeof message.sender === "string"
+            ? message.sender
+            : message.sender?._id;
+        const receiverId =
+          typeof message.receiver === "string"
+            ? message.receiver
+            : message.receiver?._id;
+
+        // Ignore echoes of our own sent messages
+        if (senderId === user._id) return;
+
+        // Safety: only handle messages where we are the receiver
+        if (receiverId !== user._id) return;
+
+        const currentChatId = activeChatRef.current;
+        const messageChatId =
+          typeof message.chat === "string"
+            ? message.chat
+            : message.chat?._id;
+
+        if (currentChatId && messageChatId && currentChatId === messageChatId) {
           setMessages((prev) => [...prev, message]);
           markMessagesAsRead([message._id]);
-        } else {
-          updateUnreadCount(message.chat);
+          setChats((prev) => {
+            const existing = prev.find((c) => c._id === messageChatId);
+            if (!existing) return prev;
+            const updated = {
+              ...existing,
+              lastMessage: { ...message },
+              updatedAt: message.timestamp || new Date().toISOString(),
+            };
+            const rest = prev.filter((c) => c._id !== messageChatId);
+            return [updated, ...rest];
+          });
+        } else if (messageChatId) {
+          updateUnreadCount(messageChatId);
+          setChats((prev) => {
+            const existing = prev.find((c) => c._id === messageChatId);
+            if (!existing) return prev;
+            const updated = {
+              ...existing,
+              lastMessage: { ...message },
+              updatedAt: message.timestamp || new Date().toISOString(),
+            };
+            const rest = prev.filter((c) => c._id !== messageChatId);
+            return [updated, ...rest];
+          });
+
+          // If somehow we don't have this chat locally (e.g., brand-new chat),
+          // fetch the list so the sidebar reflects it.
+          if (!chatsRef.current.find((c) => c._id === messageChatId)) {
+            fetchChats();
+          }
         }
       });
 
       newSocket.on("typing", () => setIsTyping(true));
       newSocket.on("stop typing", () => setIsTyping(false));
+
+      newSocket.on("messagesRead", ({ messageIds }) => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            messageIds.includes(msg._id) ? { ...msg, read: true } : msg
+          )
+        );
+      });
+
+      newSocket.on("messageDeleted", ({ messageId }) => {
+        setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
+      });
+
+      newSocket.on("chatDeleted", ({ chatId }) => {
+        setChats((prev) => prev.filter((chat) => chat._id !== chatId));
+        if (activeChatRef.current === chatId) {
+          setActiveChat(null);
+          setMessages([]);
+        }
+      });
 
       newSocket.on("onlineUsers", (users) => {
         setOnlineUsers(users);
@@ -108,7 +190,7 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
         newSocket.disconnect();
       };
     }
-  }, [user, activeChat]);
+  }, [user]);
 
   useEffect(() => {
     if (socket && activeChat) {
@@ -131,7 +213,7 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
       };
     }
   }, [inputMessage, socket, activeChat, user.role]);
-  
+
   useEffect(() => {
     if (activeChat) {
       const otherUser =
@@ -177,20 +259,38 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
       const { data } = await axios.get(`${API_BASE_URL}/chat/chats`, {
         withCredentials: true,
       });
-      setChats(data.data);
+      const chatList = data.data || [];
+      setChats(chatList);
+      setChatsFetched(true);
 
       const counts = {};
-      data.data.forEach((chat) => {
-        counts[chat._id] =
-          chat.lastMessage &&
-          !chat.lastMessage.read &&
-          chat.lastMessage.receiver._id === user._id
-            ? 1
-            : 0;
+      chatList.forEach((chat) => {
+        const last = chat.lastMessage;
+        if (!last) {
+          counts[chat._id] = 0;
+          return;
+        }
+        const receiverId =
+          typeof last.receiver === "string"
+            ? last.receiver
+            : last.receiver?._id;
+        counts[chat._id] = !last.read && receiverId === user._id ? 1 : 0;
       });
       setUnreadCounts(counts);
+
+      if (courseId && !activeChat) {
+        const existing = chatList.find(
+          (c) => c.course && c.course._id === courseId
+        );
+        if (existing) {
+          setActiveChat(existing);
+        }
+      }
+
+      return chatList;
     } catch (error) {
       console.error("Failed to fetch chats:", error);
+      return null;
     }
   };
 
@@ -216,7 +316,7 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
             withCredentials: true,
           }
         );
-        updateUnreadCount(chatId, -unreadMessages.length);
+        setUnreadCounts((prev) => ({ ...prev, [chatId]: 0 }));
       }
     } catch (error) {
       console.error("Failed to fetch messages:", error);
@@ -240,7 +340,7 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
   const updateUnreadCount = (chatId, change = 1) => {
     setUnreadCounts((prev) => ({
       ...prev,
-      [chatId]: (prev[chatId] || 0) + change,
+      [chatId]: Math.max(0, (prev[chatId] || 0) + change),
     }));
   };
 
@@ -272,6 +372,23 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
               : activeChat.student,
         },
       ]);
+      setChats((prev) => {
+        if (!activeChat) return prev;
+        const updated = {
+          ...activeChat,
+          lastMessage: {
+            ...data.data,
+            sender: user._id,
+            receiver:
+              user.role === "student"
+                ? activeChat.instructor._id
+                : activeChat.student._id,
+          },
+          updatedAt: data.data.timestamp || new Date().toISOString(),
+        };
+        const rest = prev.filter((c) => c._id !== activeChat._id);
+        return [updated, ...rest];
+      });
       setInputMessage("");
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -305,6 +422,23 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
       );
       console.log("File sent successfully:", data);
       setMessages((prev) => [...prev, data.data]);
+      setChats((prev) => {
+        if (!activeChat) return prev;
+        const updated = {
+          ...activeChat,
+          lastMessage: {
+            ...data.data,
+            sender: user._id,
+            receiver:
+              user.role === "student"
+                ? activeChat.instructor._id
+                : activeChat.student._id,
+          },
+          updatedAt: data.data.timestamp || new Date().toISOString(),
+        };
+        const rest = prev.filter((c) => c._id !== activeChat._id);
+        return [updated, ...rest];
+      });
     } catch (error) {
       console.error("Failed to send file:", error);
     } finally {
@@ -338,7 +472,7 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
 
   const startNewChat = async () => {
     try {
-      const { data } = await axios.post(
+      await axios.post(
         `${API_BASE_URL}/chat/send`,
         {
           courseId,
@@ -349,17 +483,81 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
       );
 
       setInputMessage("");
-      fetchChats();
-      setActiveChat(data.chat);
+      const chatList = await fetchChats();
+      if (chatList && courseId) {
+        const existingChat = chatList.find(
+          (c) => c.course && c.course._id === courseId
+        );
+        if (existingChat) {
+          setActiveChat(existingChat);
+        }
+      }
     } catch (error) {
       console.error("Failed to start new chat:", error);
     }
+  };
+
+  const handleDeleteMessage = (message) => {
+    Modal.confirm({
+      title: "Delete message?",
+      content: "This will delete the message for both participants.",
+      okText: "Delete",
+      okType: "danger",
+      cancelText: "Cancel",
+      onOk: async () => {
+        try {
+          await axios.delete(
+            `${API_BASE_URL}/chat/message/${message._id}`,
+            {
+              withCredentials: true,
+            }
+          );
+          setMessages((prev) => prev.filter((m) => m._id !== message._id));
+          fetchChats();
+        } catch (error) {
+          console.error("Failed to delete message:", error);
+        }
+      },
+    });
+  };
+
+  const handleDeleteChat = () => {
+    if (!activeChat) return;
+
+    Modal.confirm({
+      title: "Delete chat?",
+      content:
+        "This will delete the entire conversation for both participants.",
+      okText: "Delete",
+      okType: "danger",
+      cancelText: "Cancel",
+      onOk: async () => {
+        try {
+          await axios.delete(
+            `${API_BASE_URL}/chat/chat/${activeChat._id}`,
+            {
+              withCredentials: true,
+            }
+          );
+          setChats((prev) =>
+            prev.filter((chat) => chat._id !== activeChat._id)
+          );
+          setMessages([]);
+          setActiveChat(null);
+        } catch (error) {
+          console.error("Failed to delete chat:", error);
+        }
+      },
+    });
   };
 
   const totalUnreadCount = Object.values(unreadCounts).reduce(
     (a, b) => a + b,
     0
   );
+
+  const hasCourseChat =
+    !!courseId && chats.some((c) => c.course && c.course._id === courseId);
 
   return (
     <>
@@ -447,13 +645,20 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
                 Messages
               </span>
             )}
+            {activeChat && (
+              <div style={{ marginLeft: "auto" }}>
+                <Button type="text" danger onClick={handleDeleteChat}>
+                  Delete Chat
+                </Button>
+              </div>
+            )}
           </div>
         }
         open={visible}
         onCancel={() => setVisible(false)}
         footer={null}
         width={isMobileView ? "90%" : 800}
-        styles={{ body: { padding: 0 } }}  
+        styles={{ body: { padding: 0 } }}
         closable={false}
         closeIcon={<CloseOutlined style={{ color: "#7f8c8d" }} />}
         style={{ top: 20 }}
@@ -569,7 +774,7 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
                   );
                 }}
               />
-              {user?.role === "student" && courseId && (
+              {user?.role === "student" && courseId && !hasCourseChat && (
                 <div style={{ padding: 16 }}>
                   <Button
                     type="primary"
@@ -607,63 +812,76 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
                         "linear-gradient(to bottom, #f8f9fa 0%, #fff 100%)",
                     }}
                   >
-                    {messages.map((message) => (
-                      <div
-                        key={message._id}
-                        style={{
-                          display: "flex",
-                          justifyContent:
-                            message.sender._id === user._id
-                              ? "flex-end"
-                              : "flex-start",
-                          marginBottom: 16,
-                        }}
-                      >
+                    {messages.map((message) => {
+                      const senderId =
+                        typeof message.sender === "string"
+                          ? message.sender
+                          : message.sender?._id;
+                      const isSender = senderId === user._id;
+
+                      return (
                         <div
+                          key={message._id}
                           style={{
-                            maxWidth: "80%",
-                            borderRadius: 12,
-                            padding: "10px 14px",
-                            backgroundColor:
-                              message.sender._id === user._id
-                                ? "#1890ff"
-                                : "#ecf0f1",
-                            color:
-                              message.sender._id === user._id
-                                ? "white"
-                                : "#2c3e50",
-                            boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-                            position: "relative",
+                            display: "flex",
+                            justifyContent: isSender ? "flex-end" : "flex-start",
+                            marginBottom: 16,
                           }}
                         >
-                          <MessageContent message={message} user={user} />
                           <div
                             style={{
-                              display: "flex",
-                              justifyContent: "flex-end",
-                              alignItems: "center",
-                              marginTop: 4,
-                              fontSize: 11,
-                              color:
-                                message.sender._id === user._id
-                                  ? "rgba(255,255,255,0.7)"
-                                  : "rgba(0,0,0,0.45)",
+                              maxWidth: "80%",
+                              borderRadius: 12,
+                              padding: "10px 14px",
+                              backgroundColor: isSender ? "#1890ff" : "#ecf0f1",
+                              color: isSender ? "white" : "#2c3e50",
+                              boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+                              position: "relative",
                             }}
                           >
-                            {moment(message.timestamp).format("h:mm A")}
-                            {message.sender._id === user._id && (
-                              <span style={{ marginLeft: 4 }}>
-                                {message.read ? (
-                                  <span style={{ color: "#70c1ff" }}>✓✓</span>
-                                ) : (
-                                  <span>✓</span>
-                                )}
-                              </span>
-                            )}
+                            <MessageContent message={message} user={user} />
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                alignItems: "center",
+                                marginTop: 4,
+                                fontSize: 11,
+                                color: isSender
+                                  ? "rgba(255,255,255,0.7)"
+                                  : "rgba(0,0,0,0.45)",
+                              }}
+                            >
+                              {moment(message.timestamp).format("h:mm A")}
+                              {isSender && (
+                                <>
+                                  <span style={{ marginLeft: 4 }}>
+                                    {message.read ? (
+                                      <span style={{ color: "#70c1ff" }}>
+                                        ✓✓
+                                      </span>
+                                    ) : (
+                                      <span>✓</span>
+                                    )}
+                                  </span>
+                                  <span
+                                    style={{
+                                      marginLeft: 8,
+                                      fontSize: 11,
+                                      cursor: "pointer",
+                                      textDecoration: "underline",
+                                    }}
+                                    onClick={() => handleDeleteMessage(message)}
+                                  >
+                                    Delete
+                                  </span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     <div ref={messagesEndRef} />
                   </div>
                   {isTyping && (
@@ -812,7 +1030,7 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
                       ? "Start a new conversation with your instructor"
                       : "Select a chat to view messages"}
                   </div>
-                  {user?.role === "student" && courseId && (
+                  {user?.role === "student" && courseId && !hasCourseChat && (
                     <Button
                       type="primary"
                       onClick={startNewChat}

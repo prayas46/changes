@@ -27,6 +27,7 @@ import {
   AuthenticatedUser,
   ProtectedRoute,
 } from "./components/ProtectedRoutes";
+import HomeRedirect from "./components/HomeRedirect";
 import PurchaseCourseProtectedRoute from "./components/PurchaseCourseProtectedRoute";
 import { ThemeProvider } from "./components/ThemeProvider";
 import AIExaminer from "./pages/student/AIExaminer";

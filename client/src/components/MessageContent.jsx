@@ -36,7 +36,9 @@ const MessageContent = ({ message, user }) => {
     }
   }, [message.content]);
 
-  const isSender = message.sender._id === user._id;
+  const senderId =
+    typeof message.sender === "string" ? message.sender : message.sender._id;
+  const isSender = senderId === user._id;
 
   switch (message.messageType) {
     case "image":
@@ -49,30 +51,11 @@ const MessageContent = ({ message, user }) => {
       );
     case "video":
       return (
-        <div style={{ position: "relative" }}>
-          <video
-            src={message.fileUrl}
-            style={{ maxWidth: "100%", borderRadius: "8px" }}
-          />
-          <PlayCircleOutlined
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              fontSize: "48px",
-              color: "white",
-            }}
-            onClick={() => {
-              const video = document.querySelector(
-                `video[src="${message.fileUrl}"]`
-              );
-              if (video) {
-                video.play();
-              }
-            }}
-          />
-        </div>
+        <video
+          src={message.fileUrl}
+          controls
+          style={{ maxWidth: "100%", borderRadius: "8px" }}
+        />
       );
     case "audio":
       return (

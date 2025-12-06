@@ -40,7 +40,7 @@ const io = new Server(server, {
   pingTimeout: 60000,
 });
 
-// Track connected users
+// Track connected users: userId -> Set<socketId>
 const userSocketMap = new Map();
 
 io.on("connection", (socket) => {
@@ -48,19 +48,38 @@ io.on("connection", (socket) => {
 
   // Handle user registration
   socket.on("register", (userId) => {
-    userSocketMap.set(userId, socket.id);
+    const existing = userSocketMap.get(userId) || new Set();
+    existing.add(socket.id);
+    userSocketMap.set(userId, existing);
+
+    // Send full list to the connecting client
     io.to(socket.id).emit("onlineUsers", Array.from(userSocketMap.keys()));
-    socket.broadcast.emit("online", userId);
-    console.log(`User ${userId} connected with socket ID ${socket.id}`);
+
+    // Only broadcast "online" when this is the first active socket for the user
+    if (existing.size === 1) {
+      socket.broadcast.emit("online", userId);
+    }
+
+    console.log(
+      `User ${userId} connected with socket ID ${socket.id} (connections: ${existing.size})`
+    );
   });
 
   // Handle disconnection
   socket.on("disconnect", () => {
-    for (const [userId, socketId] of userSocketMap.entries()) {
-      if (socketId === socket.id) {
-        userSocketMap.delete(userId);
-        socket.broadcast.emit("offline", userId);
-        console.log(`User ${userId} disconnected`);
+    for (const [userId, socketSet] of userSocketMap.entries()) {
+      if (socketSet.has(socket.id)) {
+        socketSet.delete(socket.id);
+        if (socketSet.size === 0) {
+          userSocketMap.delete(userId);
+          socket.broadcast.emit("offline", userId);
+          console.log(`User ${userId} disconnected (last socket)`);
+        } else {
+          userSocketMap.set(userId, socketSet);
+          console.log(
+            `User ${userId} disconnected socket ${socket.id} (remaining: ${socketSet.size})`
+          );
+        }
         break;
       }
     }
