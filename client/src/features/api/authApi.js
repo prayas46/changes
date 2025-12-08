@@ -59,6 +59,12 @@ export const authApi = createApi({
                 }
             }
         }),
+        getStudentDashboard: builder.query({
+            query: () => ({
+                url:"dashboard",
+                method:"GET"
+            })
+        }),
         updateUser: builder.mutation({
             query: (formData) => ({
                 url:"profile/update",
@@ -74,5 +80,6 @@ export const {
     useLoginUserMutation,
     useLogoutUserMutation,
     useLoadUserQuery,
+    useGetStudentDashboardQuery,
     useUpdateUserMutation
 } = authApi;

@@ -22,7 +22,7 @@ import {
   SheetTrigger,
 } from "./ui/sheet";
 import { Separator } from "@radix-ui/react-dropdown-menu";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useLogoutUserMutation } from "@/features/api/authApi";
 import { toast } from "sonner";
 import { useSelector } from "react-redux";
@@ -32,6 +32,8 @@ const Navbar = () => {
   const { user } = useSelector((store) => store.auth);
   const [logoutUser, { data, isSuccess }] = useLogoutUserMutation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isDashboardRoute = location.pathname === "/dashboard";
   const logoutHandler = async () => {
     await logoutUser();
   };
@@ -84,20 +86,20 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto hidden md:flex justify-between items-center gap-10 h-full">
         <div className="flex items-center gap-2">
           <School size={"30"} />
-          {/*<Link to="/">
-            <h1 className="hidden md:block font-extrabold text-2xl">
-              SmartEdu
-            </h1>*/}
+          {!isDashboardRoute && (
             <h1
-            onClick={() =>
-              user?.role === "instructor"
-                ? navigate("/admin/dashboard")
-                : navigate("/")
-            }
-            className="hidden md:block font-extrabold text-2xl cursor-pointer">
-            SmartEdu
+              onClick={() =>
+                user?.role === "instructor"
+                  ? navigate("/admin/dashboard")
+                  : user?.role === "student"
+                  ? navigate("/dashboard")
+                  : navigate("/")
+              }
+              className="hidden md:block font-extrabold text-2xl cursor-pointer"
+            >
+              SmartEdu
             </h1>
-          {/*</Link>*/}
+          )}
         </div>
      
         {/* User icons and dark mode icon  */}
@@ -120,6 +122,11 @@ const Navbar = () => {
                   {/*<DropdownMenuItem>
                     <Link to="my-learning">My learning</Link>
                   </DropdownMenuItem>*/}
+                  {user?.role === "student" && (
+                    <DropdownMenuItem>
+                      <Link to="/dashboard">Dashboard</Link>
+                    </DropdownMenuItem>
+                  )}
                   {user?.role !== "instructor" && (
                     <DropdownMenuItem>
                       <Link to="my-learning">My learning</Link>
@@ -184,6 +191,8 @@ const Navbar = () => {
           onClick={() =>
             user?.role === "instructor"
               ? navigate("/admin/dashboard")
+              : user?.role === "student"
+              ? navigate("/dashboard")
               : navigate("/")
           }
           className="font-extrabold text-2xl cursor-pointer"
@@ -230,6 +239,9 @@ const MobileNavbar = ({user ,logoutHandler }) => {
         <Separator className="mr-2" />
         <nav className="flex flex-col space-y-4">
           {/*<Link to="/my-learning">My Learning</Link>*/}
+          {user?.role === "student" && (
+            <Link to="/dashboard">Dashboard</Link>
+          )}
           {user?.role !== "instructor" && (
             <Link to="/my-learning">My Learning</Link>
           )}
