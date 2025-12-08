@@ -18,6 +18,7 @@ import CreateLecture from "./pages/admin/lecture/CreateLecture";
 import EditLecture from "./pages/admin/lecture/EditLecture";
 import CourseDetail from "./pages/student/CourseDetail";
 import CourseProgress from "./pages/student/CourseProgress";
+import StudentDashboard from "./pages/student/StudentDashboard";
 import SearchPage from "./pages/student/SearchPage";
 import AIRoadmap from "./pages/student/AIRoadmap";
 import TrackProgress from "./pages/student/TrackProgress";
@@ -73,10 +74,10 @@ const appRouter = createBrowserRouter([
         ),
       },
       {
-        path: "cbt",
+        path: "dashboard",
         element: (
           <ProtectedRoute>
-            <IntroPage />
+            <StudentDashboard />
           </ProtectedRoute>
         ),
       },
@@ -85,6 +86,14 @@ const appRouter = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <AIExaminerResult/>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "cbt",
+        element: (
+          <ProtectedRoute>
+            <IntroPage />
           </ProtectedRoute>
         ),
       },
