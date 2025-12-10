@@ -301,7 +301,11 @@ Please provide a structured JSON response with the following format (respond ONL
         };
 
     } catch (error) {
-        console.error('Gemini API Error:', error.response?.data || error.message);
+        if (error instanceof SyntaxError) {
+            console.warn('Gemini JSON parse failed, using fallback roadmap:', error.message);
+        } else {
+            console.error('Gemini API Error:', error.response?.data || error.message);
+        }
 
         try {
             const fallbackRoadmap = buildFallbackRoadmap(roadmapData);
