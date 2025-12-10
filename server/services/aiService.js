@@ -1,7 +1,110 @@
 import axios from 'axios';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+
+const buildFallbackRoadmap = (roadmapData) => {
+    const {
+        examType = 'NEET',
+        currentMarks = 0,
+        sectionWiseMarks = {},
+        targetScore = 0,
+        attemptNumber = 1,
+        preferences = [],
+        studyStyle = []
+    } = roadmapData || {};
+
+    const safeSectionWise = sectionWiseMarks || {};
+
+    const subjectEntries = examType === 'NEET'
+        ? [
+            { key: 'physics', label: 'Physics', score: Number(safeSectionWise.physics) || 0 },
+            { key: 'chemistry', label: 'Chemistry', score: Number(safeSectionWise.chemistry) || 0 },
+            { key: 'biology', label: 'Biology', score: Number(safeSectionWise.biology) || 0 }
+        ]
+        : [
+            { key: 'physics', label: 'Physics', score: Number(safeSectionWise.physics) || 0 },
+            { key: 'chemistry', label: 'Chemistry', score: Number(safeSectionWise.chemistry) || 0 },
+            { key: 'mathematics', label: 'Mathematics', score: Number(safeSectionWise.mathematics) || 0 }
+        ];
+
+    const sortedSubjects = [...subjectEntries].sort((a, b) => a.score - b.score);
+
+    const subjectPriority = sortedSubjects.map((s, index) => ({
+        subject: s.label,
+        priority: index + 1,
+        focus: `Focus on strengthening core concepts and practicing high-yield questions in ${s.label}.`
+    }));
+
+    const baseHours = 6;
+    const totalPriority = subjectPriority.reduce((sum, s) => sum + (subjectPriority.length + 1 - s.priority), 0) || 1;
+
+    const studyTimeAllocation = subjectPriority.map((s) => {
+        const weight = subjectPriority.length + 1 - s.priority;
+        const hours = Math.max(1, parseFloat((baseHours * weight / totalPriority).toFixed(1)));
+        const activities = [
+            `Concept revision for ${s.subject}`,
+            `Practice MCQs and previous year questions for ${s.subject}`,
+            `Timed mock tests focusing on ${s.subject}`
+        ];
+        return {
+            subject: s.subject,
+            hoursPerDay: hours,
+            activities
+        };
+    });
+
+    const weeklyFocusCycle = [
+        {
+            weeks: 'Week 1-4',
+            focus: ['Build strong fundamentals in all subjects', 'Identify weak topics through chapter-wise tests']
+        },
+        {
+            weeks: 'Week 5-8',
+            focus: ['Intensive practice on weak areas', 'Increase frequency of full-length mock tests']
+        },
+        {
+            weeks: 'Week 9-12',
+            focus: ['Full syllabus revision', 'Simulate exam conditions with timed papers']
+        }
+    ];
+
+    const numericCurrent = Number(currentMarks) || 0;
+    const numericTarget = Number(targetScore) || 0;
+    const scoreGap = numericTarget - numericCurrent;
+    const firstMilestone = numericCurrent + scoreGap * 0.4;
+    const secondMilestone = numericCurrent + scoreGap * 0.7;
+
+    const milestoneGoals = [
+        {
+            timeline: 'After 1 month',
+            targetScore: Math.round(firstMilestone)
+        },
+        {
+            timeline: 'After 2 months',
+            targetScore: Math.round(secondMilestone)
+        },
+        {
+            timeline: 'Final phase',
+            targetScore: targetScore
+        }
+    ];
+
+    const additionalRecommendations = [
+        'Follow a fixed daily routine with clear start and end times for focused study blocks.',
+        'After every mock test, analyse mistakes carefully and maintain a revision list of weak topics.',
+        'Keep a concise formula and concept notebook for last-minute revision.',
+        'Maintain proper sleep, nutrition, and short breaks to avoid burnout and sustain consistency.'
+    ];
+
+    return {
+        subjectPriority,
+        studyTimeAllocation,
+        weeklyFocusCycle,
+        milestoneGoals,
+        additionalRecommendations
+    };
+};
 
 export const generateStudyRoadmap = async (roadmapData) => {
     try {
@@ -94,6 +197,75 @@ Please provide a structured JSON response with the following format (respond ONL
                     topK: 40,
                     topP: 0.95,
                     maxOutputTokens: 2048,
+                    responseMimeType: 'application/json',
+                    responseJsonSchema: {
+                        type: 'object',
+                        properties: {
+                            subjectPriority: {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    properties: {
+                                        subject: { type: 'string' },
+                                        priority: { type: 'integer' },
+                                        focus: { type: 'string' }
+                                    },
+                                    required: ['subject', 'priority', 'focus']
+                                }
+                            },
+                            studyTimeAllocation: {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    properties: {
+                                        subject: { type: 'string' },
+                                        hoursPerDay: { type: 'number' },
+                                        activities: {
+                                            type: 'array',
+                                            items: { type: 'string' }
+                                        }
+                                    },
+                                    required: ['subject', 'hoursPerDay', 'activities']
+                                }
+                            },
+                            weeklyFocusCycle: {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    properties: {
+                                        weeks: { type: 'string' },
+                                        focus: {
+                                            type: 'array',
+                                            items: { type: 'string' }
+                                        }
+                                    },
+                                    required: ['weeks', 'focus']
+                                }
+                            },
+                            milestoneGoals: {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    properties: {
+                                        timeline: { type: 'string' },
+                                        targetScore: { type: 'number' }
+                                    },
+                                    required: ['timeline', 'targetScore']
+                                }
+                            },
+                            additionalRecommendations: {
+                                type: 'array',
+                                items: { type: 'string' }
+                            }
+                        },
+                        required: [
+                            'subjectPriority',
+                            'studyTimeAllocation',
+                            'weeklyFocusCycle',
+                            'milestoneGoals',
+                            'additionalRecommendations'
+                        ]
+                    }
                 }
             },
             {
@@ -114,6 +286,12 @@ Please provide a structured JSON response with the following format (respond ONL
             cleanedText = cleanedText.replace(/```\n?/g, '');
         }
 
+        const jsonStart = cleanedText.indexOf('{');
+        const jsonEnd = cleanedText.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+            cleanedText = cleanedText.slice(jsonStart, jsonEnd + 1);
+        }
+
         // Parse JSON response
         const roadmap = JSON.parse(cleanedText);
 
@@ -124,19 +302,20 @@ Please provide a structured JSON response with the following format (respond ONL
 
     } catch (error) {
         console.error('Gemini API Error:', error.response?.data || error.message);
-        
-        // If JSON parsing fails, return a fallback error
-        if (error instanceof SyntaxError) {
+
+        try {
+            const fallbackRoadmap = buildFallbackRoadmap(roadmapData);
+            return {
+                success: true,
+                roadmap: fallbackRoadmap
+            };
+        } catch (fallbackError) {
+            console.error('Fallback roadmap generation error:', fallbackError);
             return {
                 success: false,
                 error: 'Failed to parse AI response. Please try again.'
             };
         }
-
-        return {
-            success: false,
-            error: error.response?.data?.error?.message || 'Failed to generate roadmap. Please try again.'
-        };
     }
 };
 
@@ -204,6 +383,12 @@ Ensure the aiScore and relevancePercentage are calculated accurately based on ho
             generatedText = generatedText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
         } else if (generatedText.startsWith('```')) {
             generatedText = generatedText.replace(/```\n?/g, '');
+        }
+
+        const jsonStartScore = generatedText.indexOf('{');
+        const jsonEndScore = generatedText.lastIndexOf('}');
+        if (jsonStartScore !== -1 && jsonEndScore !== -1 && jsonEndScore > jsonStartScore) {
+            generatedText = generatedText.slice(jsonStartScore, jsonEndScore + 1);
         }
 
         const { scoredCourses: geminiScoredCourses, insights, suggestions } = JSON.parse(generatedText);
