@@ -1,8 +1,6 @@
 import axios from "axios";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 const buildFallbackRoadmap = (roadmapData) => {
@@ -111,14 +109,29 @@ const buildFallbackRoadmap = (roadmapData) => {
 export const generateStudyRoadmap = async (roadmapData) => {
   try {
     const {
-      examType,
-      currentMarks,
-      sectionWiseMarks,
-      targetScore,
-      attemptNumber,
-      preferences,
-      studyStyle,
-    } = roadmapData;
+      examType = "NEET",
+      currentMarks = 0,
+      sectionWiseMarks = {},
+      targetScore = 0,
+      attemptNumber = 1,
+      preferences = [],
+      studyStyle = [],
+    } = roadmapData || {};
+
+    if (!GEMINI_API_KEY) {
+      return {
+        success: true,
+        roadmap: buildFallbackRoadmap({
+          examType,
+          currentMarks,
+          sectionWiseMarks,
+          targetScore,
+          attemptNumber,
+          preferences,
+          studyStyle,
+        }),
+      };
+    }
 
     // Calculate score gap and improvement needed
     const scoreGap = targetScore - currentMarks;
@@ -218,7 +231,7 @@ Please provide a structured JSON response with the following format (respond ONL
     );
 
     // Extract the generated text
-    const generatedText = response.data.candidates[0].content.parts[0].text;
+    const generatedText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     // Clean the response - remove markdown code blocks if present
     let cleanedText = generatedText.trim();
@@ -231,7 +244,20 @@ Please provide a structured JSON response with the following format (respond ONL
     }
 
     // Parse JSON response
-    const roadmap = JSON.parse(cleanedText);
+    let roadmap;
+    try {
+      roadmap = JSON.parse(cleanedText);
+    } catch (parseError) {
+      roadmap = buildFallbackRoadmap({
+        examType,
+        currentMarks,
+        sectionWiseMarks,
+        targetScore,
+        attemptNumber,
+        preferences,
+        studyStyle,
+      });
+    }
 
     return {
       success: true,
@@ -240,178 +266,22 @@ Please provide a structured JSON response with the following format (respond ONL
   } catch (error) {
     console.error("Gemini API Error:", error.response?.data || error.message);
 
-    // If JSON parsing fails, return a fallback error
-    if (error instanceof SyntaxError) {
+    try {
+      return {
+        success: true,
+        roadmap: buildFallbackRoadmap(roadmapData),
+      };
+    } catch (fallbackError) {
       return {
         success: false,
-        error: "Failed to parse AI response. Please try again.",
+        error:
+          error.response?.data?.error?.message ||
+          "Failed to generate roadmap. Please try again.",
       };
     }
-
-    return {
-      success: false,
-      error:
-        error.response?.data?.error?.message ||
-        "Failed to generate roadmap. Please try again.",
-    };
   }
 };
 
-export const scoreCoursesWithGemini = async (courses, query) => {
-  try {
-    const courseData = courses.map((course) => ({
-      _id: course._id,
-      courseTitle: course.courseTitle,
-      subTitle: course.subTitle,
-      description: course.description,
-      category: course.category,
-      courseLevel: course.courseLevel,
-      creatorName: course.creator ? course.creator.name : "Unknown",
-      enrolledCount: course.enrolledCount,
-      lectureCount: course.lectureCount,
-      searchableText: course.searchableText,
-    }));
-
-    const prompt = `You are an AI assistant specialized in scoring and providing insights for online courses based on a user's search query. Here is the search query: "${query}". And here are the courses:
-        // Make API call to Gemini
-        const response = await axios.post(
-            `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
-            {
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }],
-                generationConfig: {
-                    temperature: 0.7,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 2048,
-                    responseMimeType: 'application/json',
-                    responseJsonSchema: {
-                        type: 'object',
-                        properties: {
-                            subjectPriority: {
-                                type: 'array',
-                                items: {
-                                    type: 'object',
-                                    properties: {
-                                        subject: { type: 'string' },
-                                        priority: { type: 'integer' },
-                                        focus: { type: 'string' }
-                                    },
-                                    required: ['subject', 'priority', 'focus']
-                                }
-                            },
-                            studyTimeAllocation: {
-                                type: 'array',
-                                items: {
-                                    type: 'object',
-                                    properties: {
-                                        subject: { type: 'string' },
-                                        hoursPerDay: { type: 'number' },
-                                        activities: {
-                                            type: 'array',
-                                            items: { type: 'string' }
-                                        }
-                                    },
-                                    required: ['subject', 'hoursPerDay', 'activities']
-                                }
-                            },
-                            weeklyFocusCycle: {
-                                type: 'array',
-                                items: {
-                                    type: 'object',
-                                    properties: {
-                                        weeks: { type: 'string' },
-                                        focus: {
-                                            type: 'array',
-                                            items: { type: 'string' }
-                                        }
-                                    },
-                                    required: ['weeks', 'focus']
-                                }
-                            },
-                            milestoneGoals: {
-                                type: 'array',
-                                items: {
-                                    type: 'object',
-                                    properties: {
-                                        timeline: { type: 'string' },
-                                        targetScore: { type: 'number' }
-                                    },
-                                    required: ['timeline', 'targetScore']
-                                }
-                            },
-                            additionalRecommendations: {
-                                type: 'array',
-                                items: { type: 'string' }
-                            }
-                        },
-                        required: [
-                            'subjectPriority',
-                            'studyTimeAllocation',
-                            'weeklyFocusCycle',
-                            'milestoneGoals',
-                            'additionalRecommendations'
-                        ]
-                    }
-                }
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-
-        // Extract the generated text
-        const generatedText = response.data.candidates[0].content.parts[0].text;
-        
-        // Clean the response - remove markdown code blocks if present
-        let cleanedText = generatedText.trim();
-        if (cleanedText.startsWith('```json')) {
-            cleanedText = cleanedText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-        } else if (cleanedText.startsWith('```')) {
-            cleanedText = cleanedText.replace(/```\n?/g, '');
-        }
-
-        const jsonStart = cleanedText.indexOf('{');
-        const jsonEnd = cleanedText.lastIndexOf('}');
-        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-            cleanedText = cleanedText.slice(jsonStart, jsonEnd + 1);
-        }
-
-        // Parse JSON response
-        const roadmap = JSON.parse(cleanedText);
-
-        return {
-            success: true,
-            roadmap
-        };
-
-    } catch (error) {
-        if (error instanceof SyntaxError) {
-            console.warn('Gemini JSON parse failed, using fallback roadmap:', error.message);
-        } else {
-            console.error('Gemini API Error:', error.response?.data || error.message);
-        }
-
-        try {
-            const fallbackRoadmap = buildFallbackRoadmap(roadmapData);
-            return {
-                success: true,
-                roadmap: fallbackRoadmap
-            };
-        } catch (fallbackError) {
-            console.error('Fallback roadmap generation error:', fallbackError);
-            return {
-                success: false,
-                error: 'Failed to parse AI response. Please try again.'
-            };
-        }
-    }
-};
 const computeLocalCourseScores = (courses, query) => {
     const normalizedQuery = (query || '').toLowerCase().trim();
     const terms = normalizedQuery ? normalizedQuery.split(/\s+/).filter(Boolean) : [];
@@ -480,7 +350,6 @@ const computeLocalCourseScores = (courses, query) => {
 export const scoreCoursesWithGemini = async (courses, query) => {
     const localResult = computeLocalCourseScores(courses, query);
 
-    // If no API key is configured, fall back to local scoring only
     if (!GEMINI_API_KEY) {
         return localResult;
     }
@@ -502,7 +371,7 @@ export const scoreCoursesWithGemini = async (courses, query) => {
         const prompt = `You are an AI assistant specialized in scoring and providing insights for online courses based on a user's search query. Here is the search query: "${query}". And here are the courses:
 ${JSON.stringify(courseData, null, 2)}
 
-Please provide a JSON array of these courses, each with an added 'aiScore' (a number between 0 and 1, where 1 is a perfect match) and a 'relevancePercentage' (rounded to the nearest integer). Also, provide an overall 'insights' object with a 'summary' and 'suggestions' array, and a global 'searchSuggestions' array based on the query and courses. The structure should be as follows (respond ONLY with valid JSON, no markdown or extra text):
+Please provide a JSON object with the following structure (respond ONLY with valid JSON, no markdown or extra text):
 
 {
   "scoredCourses": [
@@ -513,94 +382,29 @@ Please provide a JSON array of these courses, each with an added 'aiScore' (a nu
     }
   ],
   "insights": {
-    "summary": "Overall summary of search results, e.g., 'Top results focus on [X] and [Y]'.",
-    "suggestions": ["Improve query by adding Z", "Explore related topics"]
+    "summary": "Overall summary of search results",
+    "suggestions": ["Suggestion 1", "Suggestion 2"]
   },
   "suggestions": ["suggestion 1", "suggestion 2"]
-}
+}`;
 
-Ensure the aiScore and relevancePercentage are calculated accurately based on how well each course's content (title, subtitle, description, category, level, creator name, lecture titles) matches the search query. For insights and suggestions, be creative and helpful, drawing from the course data.`;
-
-    const response = await axios.post(
-      `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
-      {
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 2048,
-        },
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    let generatedText = response.data.candidates[0].content.parts[0].text;
-    if (generatedText.startsWith("```json")) {
-      generatedText = generatedText
-        .replace(/```json\n?/g, "")
-        .replace(/```\n?/g, "");
-    } else if (generatedText.startsWith("```")) {
-      generatedText = generatedText.replace(/```\n?/g, "");
         const response = await axios.post(
             `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
             {
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }],
+                contents: [
+                    {
+                        parts: [
+                            {
+                                text: prompt,
+                            },
+                        ],
+                    },
+                ],
                 generationConfig: {
                     temperature: 0.7,
                     topK: 40,
                     topP: 0.95,
                     maxOutputTokens: 2048,
-                    responseMimeType: 'application/json',
-                    responseJsonSchema: {
-                        type: 'object',
-                        properties: {
-                            scoredCourses: {
-                                type: 'array',
-                                items: {
-                                    type: 'object',
-                                    properties: {
-                                        _id: { type: 'string' },
-                                        aiScore: { type: 'number' },
-                                        relevancePercentage: { type: 'integer' },
-                                    },
-                                    required: ['_id', 'aiScore', 'relevancePercentage'],
-                                },
-                            },
-                            insights: {
-                                type: 'object',
-                                properties: {
-                                    summary: { type: 'string' },
-                                    suggestions: {
-                                        type: 'array',
-                                        items: { type: 'string' },
-                                    },
-                                },
-                                required: ['summary', 'suggestions'],
-                            },
-                            suggestions: {
-                                type: 'array',
-                                items: { type: 'string' },
-                            },
-                        },
-                        required: ['scoredCourses', 'insights', 'suggestions'],
-                    },
                 },
             },
             {
@@ -610,17 +414,19 @@ Ensure the aiScore and relevancePercentage are calculated accurately based on ho
             }
         );
 
-        let generatedText = response.data.candidates[0].content.parts[0].text || '';
+        let generatedText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        generatedText = generatedText.trim();
+
         if (generatedText.startsWith('```json')) {
             generatedText = generatedText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
         } else if (generatedText.startsWith('```')) {
             generatedText = generatedText.replace(/```\n?/g, '');
         }
 
-        const jsonStartScore = generatedText.indexOf('{');
-        const jsonEndScore = generatedText.lastIndexOf('}');
-        if (jsonStartScore !== -1 && jsonEndScore !== -1 && jsonEndScore > jsonStartScore) {
-            generatedText = generatedText.slice(jsonStartScore, jsonEndScore + 1);
+        const jsonStart = generatedText.indexOf('{');
+        const jsonEnd = generatedText.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+            generatedText = generatedText.slice(jsonStart, jsonEnd + 1);
         }
 
         let parsed;
@@ -631,16 +437,15 @@ Ensure the aiScore and relevancePercentage are calculated accurately based on ho
             return localResult;
         }
 
-        const { scoredCourses: geminiScoredCourses, insights, suggestions } = parsed || {};
+        const geminiScoredCourses = Array.isArray(parsed?.scoredCourses) ? parsed.scoredCourses : [];
 
         const finalScoredCourses = localResult.scoredCourses.map(course => {
-            const geminiScore = Array.isArray(geminiScoredCourses)
-                ? geminiScoredCourses.find(gsc => gsc._id === course._id.toString())
-                : null;
+            const courseId = course?._id?.toString?.() ?? String(course._id);
+            const geminiScore = geminiScoredCourses.find(gsc => String(gsc?._id) === courseId);
             return {
                 ...course,
-                aiScore: geminiScore && typeof geminiScore.aiScore === 'number' ? geminiScore.aiScore : course.aiScore,
-                relevancePercentage: geminiScore && typeof geminiScore.relevancePercentage === 'number'
+                aiScore: (typeof geminiScore?.aiScore === 'number') ? geminiScore.aiScore : course.aiScore,
+                relevancePercentage: (typeof geminiScore?.relevancePercentage === 'number')
                     ? geminiScore.relevancePercentage
                     : course.relevancePercentage,
             };
@@ -648,53 +453,11 @@ Ensure the aiScore and relevancePercentage are calculated accurately based on ho
 
         return {
             scoredCourses: finalScoredCourses,
-            insights: insights || localResult.insights,
-            suggestions: suggestions || localResult.suggestions,
+            insights: parsed?.insights || localResult.insights,
+            suggestions: parsed?.suggestions || localResult.suggestions,
         };
-
     } catch (error) {
         console.error('Gemini Search Scoring API Error:', error.response?.data || error.message);
         return localResult;
     }
-
-    const {
-      scoredCourses: geminiScoredCourses,
-      insights,
-      suggestions,
-    } = JSON.parse(generatedText);
-
-    const finalScoredCourses = courses.map((course) => {
-      const geminiScore = geminiScoredCourses.find(
-        (gsc) => gsc._id === course._id.toString()
-      );
-      return {
-        ...course,
-        aiScore: geminiScore ? geminiScore.aiScore : 0,
-        relevancePercentage: geminiScore ? geminiScore.relevancePercentage : 0,
-      };
-    });
-
-    return { scoredCourses: finalScoredCourses, insights, suggestions };
-  } catch (error) {
-    console.error(
-      "Gemini Search Scoring Error:",
-      error.response?.data || error.message
-    );
-    return {
-      scoredCourses: courses.map((course) => ({
-        ...course,
-        aiScore: 0,
-        relevancePercentage: 0,
-      })),
-      insights: {
-        summary:
-          "We're showing relevant courses, but AI-powered insights are temporarily unavailable.",
-        suggestions: [
-          "Refine your search query to further narrow the results.",
-          "Try again in a little while if you need AI-powered recommendations.",
-        ],
-      },
-      suggestions: [],
-    };
-  }
 };
