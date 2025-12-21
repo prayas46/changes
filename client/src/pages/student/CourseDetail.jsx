@@ -72,7 +72,11 @@ const CourseDetail = () => {
               {course.lectures.map((lecture, idx) => (
                 <div key={idx} className="flex items-center gap-3 text-sm">
                   <span>
-                    {true ? <PlayCircle size={14} /> : <Lock size={14} />}
+                    {purchased || lecture.isPreviewFree ? (
+                      <PlayCircle size={14} />
+                    ) : (
+                      <Lock size={14} />
+                    )}
                   </span>
                   <p>{lecture.lectureTitle}</p>
                 </div>
@@ -84,12 +88,27 @@ const CourseDetail = () => {
           <Card>
             <CardContent className="p-4 flex flex-col">
               <div className="w-full aspect-video mb-4">
-                <ReactPlayer
-                  width="100%"
-                  height={"100%"}
-                  url={course.lectures[0].videoUrl}
-                  controls={true}
-                />
+                {(() => {
+                  const playableLecture = (course.lectures || []).find(
+                    (l) => !!l?.videoUrl
+                  );
+                  if (!playableLecture) {
+                    return (
+                      <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-600 rounded">
+                        Preview not available
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <ReactPlayer
+                      width="100%"
+                      height={"100%"}
+                      url={playableLecture.videoUrl}
+                      controls={true}
+                    />
+                  );
+                })()}
               </div>
               <h1>Lecture title</h1>
               <Separator className="my-2" />

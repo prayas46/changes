@@ -6,8 +6,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
+const BACKEND_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8080';
+
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: BACKEND_URL,
   withCredentials: true,
 });
 

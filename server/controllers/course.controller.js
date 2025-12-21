@@ -1,6 +1,7 @@
  
 import { Course } from "../models/course.model.js";
 import { Lecture } from "../models/lecture.model.js";
+import { CoursePurchase } from "../models/coursePurchase.model.js";
 import {deleteMediaFromCloudinary, deleteVideoFromCloudinary, uploadMedia} from "../utils/cloudinary.js";
 
 export const createCourse = async (req,res) => {
@@ -294,8 +295,32 @@ export const getCourseLecture = async (req,res) => {
                 message:"Course not found"
             })
         }
+
+        const userId = req.id;
+        const isCreator = course.creator?.toString() === userId?.toString();
+        const purchase = await CoursePurchase.findOne({
+            userId,
+            courseId,
+            status: "completed",
+        });
+
+        const isPurchased = !!purchase;
+
+        const lectures =
+            isCreator || isPurchased
+                ? course.lectures
+                : (course.lectures || []).map((lecture) => {
+                      const safeLecture = lecture?.toObject
+                          ? lecture.toObject()
+                          : lecture;
+                      if (!safeLecture?.isPreviewFree) {
+                          safeLecture.videoUrl = undefined;
+                      }
+                      safeLecture.publicId = undefined;
+                      return safeLecture;
+                  });
         return res.status(200).json({
-            lectures: course.lectures
+            lectures
         });
 
     } catch (error) {
@@ -381,6 +406,36 @@ export const getLectureById = async (req,res) => {
                 message:"Lecture not found!"
             });
         }
+
+        const userId = req.id;
+        const course = await Course.findOne({ lectures: lectureId }).select(
+            "creator isPublished"
+        );
+        const isCreator = course?.creator?.toString() === userId?.toString();
+        const purchase = course
+            ? await CoursePurchase.findOne({
+                  userId,
+                  courseId: course._id,
+                  status: "completed",
+              })
+            : null;
+
+        const isPurchased = !!purchase;
+
+        if (!isCreator && !isPurchased) {
+            const isPreview = !!lecture.isPreviewFree;
+            const isPublished = !!course?.isPublished;
+            if (!isPreview || !isPublished) {
+                return res.status(403).json({
+                    message: "You are not authorized to access this lecture",
+                });
+            }
+
+            const safeLecture = lecture?.toObject ? lecture.toObject() : lecture;
+            safeLecture.publicId = undefined;
+            return res.status(200).json({ lecture: safeLecture });
+        }
+
         return res.status(200).json({
             lecture
         });

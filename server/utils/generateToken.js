@@ -5,13 +5,14 @@ export const generateToken = (res, user, message) => {
     expiresIn: "1d",
   });
 
+  const isProd = process.env.NODE_ENV === "production";
+
   return res
     .status(200)
     .cookie("token", token, {
       httpOnly: true,
-      //sameSite: "strict",
-      secure: false, //  Only true in production (when using HTTPS)
-      sameSite: "lax", //  Works well with localhost cross-origin
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     }).json({
         success:true,

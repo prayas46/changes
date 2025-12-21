@@ -77,6 +77,14 @@ export const getCourseProgress = async (req, res) => {
     });
 
     const purchased = !!purchase;
+    const isCreator =
+      courseDetails?.creator?._id?.toString() === userId?.toString();
+
+    if (!purchased && !isCreator) {
+      return res.status(403).json({
+        message: "You are not authorized to access this course",
+      });
+    }
 
     // Step-3: If no progress found, return course details with empty progress
     if (!courseProgress) {
@@ -109,6 +117,17 @@ export const updateLectureProgress = async (req, res) => {
   try {
     const { courseId, lectureId } = req.params;
     const userId = req.id;
+
+    const purchase = await CoursePurchase.findOne({
+      courseId,
+      userId,
+      status: "completed",
+    });
+    if (!purchase) {
+      return res.status(403).json({
+        message: "You are not authorized to access this course",
+      });
+    }
 
     // fetch or create course progress
     let courseProgress = await CourseProgress.findOne({ courseId, userId });
@@ -147,15 +166,12 @@ export const updateLectureProgress = async (req, res) => {
     const user = await User.findById(userId);
     const course = await Course.findById(courseId);
 
-    if (course.lectures.length === lectureProgressLength)
+    if (course.lectures.length === lectureProgressLength) {
       courseProgress.completed = true;
-      // Generate certificate PDF
       const certPath = await generateCertificate(user.name, course.courseTitle);
-      //console.log(" Certificate generated at:", certPath);
-
-      // Send the certificate via email
       await sendCertificateEmail(user.email, certPath);
       console.log(" Certificate email sent to:", user.email);
+    }
 
     await courseProgress.save();
 
@@ -171,6 +187,17 @@ export const markAsCompleted = async (req, res) => {
   try {
     const { courseId } = req.params;
     const userId = req.id;
+
+    const purchase = await CoursePurchase.findOne({
+      courseId,
+      userId,
+      status: "completed",
+    });
+    if (!purchase) {
+      return res.status(403).json({
+        message: "You are not authorized to access this course",
+      });
+    }
 
     const course = await Course.findById(courseId);
     const user = await User.findById(userId);
@@ -203,6 +230,17 @@ export const markAsInCompleted = async (req, res) => {
     try {
       const { courseId } = req.params;
       const userId = req.id;
+
+      const purchase = await CoursePurchase.findOne({
+        courseId,
+        userId,
+        status: "completed",
+      });
+      if (!purchase) {
+        return res.status(403).json({
+          message: "You are not authorized to access this course",
+        });
+      }
   
       const courseProgress = await CourseProgress.findOne({ courseId, userId });
       if (!courseProgress)

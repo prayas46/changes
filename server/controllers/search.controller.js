@@ -1,20 +1,14 @@
 import { Course } from "../models/course.model.js";
-import { scoreCoursesWithGemini } from "../services/aiService.js";
 
 // Advanced AI Search Algorithm with multiple scoring mechanisms
 export const aiSearchCourses = async (req, res) => {
     try {
         const { query, category, level, minPrice, maxPrice, sortBy = 'relevance' } = req.query;
 
-        if (!query || query.trim().length < 1) {
-            return res.status(400).json({
-                success: false,
-                message: "Search query must be at least 2 characters long"
-            });
-        }
+        const normalizedQuery = query ? String(query).trim() : "";
 
         // Build search pipeline
-        const searchPipeline = buildSearchPipeline(query, {
+        const searchPipeline = buildSearchPipeline(normalizedQuery, {
             category,
             level,
             minPrice: minPrice ? parseFloat(minPrice) : undefined,
@@ -32,25 +26,15 @@ export const aiSearchCourses = async (req, res) => {
                 data: {
                     courses: [],
                     totalResults: 0,
-                    searchQuery: query,
-                    insights: {
-                        summary: "No courses found matching your search criteria",
-                        suggestions: [
-                            "Try using broader search terms",
-                            "Check your spelling",
-                            "Remove filters to see more results"
-                        ]
-                    },
+                    searchQuery: normalizedQuery,
+                    insights: {},
                     suggestions: []
                 }
             });
         }
 
-        // Apply Gemini-powered relevance scoring and generate insights/suggestions
-        const { scoredCourses, insights, suggestions } = await scoreCoursesWithGemini(courses, query);
-
-        // Sort results based on preference (using Gemini score if relevance is chosen)
-        const sortedCourses = sortResults(scoredCourses, sortBy);
+        // Apply local relevance sorting (no AI / match % fields)
+        const sortedCourses = sortResults(courses, sortBy, normalizedQuery);
 
         return res.status(200).json({
             success: true,
@@ -58,14 +42,15 @@ export const aiSearchCourses = async (req, res) => {
             data: {
                 courses: sortedCourses,
                 totalResults: sortedCourses.length,
-                searchQuery: query,
-                insights,
-                suggestions,
+                searchQuery: normalizedQuery,
+                insights: {},
+                suggestions: [],
             }
         });
 
     } catch (error) {
         console.error("AI Search Error:", error);
+
         return res.status(500).json({
             success: false,
             message: "Failed to perform AI search"
@@ -130,7 +115,7 @@ const buildSearchPipeline = (query, filters) => {
         }
     );
 
-    // Add searchableText field for Gemini to analyze
+    // Add searchableText field for consistent search matching
     pipeline.push({
         $addFields: {
             searchableText: {
@@ -167,25 +152,66 @@ const buildSearchPipeline = (query, filters) => {
     return pipeline;
 };
 
-const sortResults = (courses, sortBy) => {
+const sortResults = (courses, sortBy, query) => {
     if (!courses || courses.length === 0) return [];
+
+    const normalizedQuery = (query || "").toLowerCase().trim();
+    const terms = normalizedQuery ? normalizedQuery.split(/\s+/).filter(Boolean) : [];
+    const withLocalScore = courses.map((course) => {
+        if (terms.length === 0) {
+            return { course, _score: 0 };
+        }
+
+        const title = String(course.courseTitle || "").toLowerCase();
+        const category = String(course.category || "").toLowerCase();
+        const subTitle = String(course.subTitle || "").toLowerCase();
+        const description = String(course.description || "").toLowerCase();
+        const searchableText = String(course.searchableText || "").toLowerCase();
+
+        let score = 0;
+        for (const term of terms) {
+            if (!term) continue;
+            if (title.includes(term)) score += 5;
+            else if (subTitle.includes(term)) score += 3;
+            else if (category.includes(term)) score += 3;
+            else if (description.includes(term)) score += 1;
+            else if (searchableText.includes(term)) score += 1;
+        }
+
+        return { course, _score: score };
+    });
 
     switch (sortBy) {
         case 'price_low':
-            return courses.sort((a, b) => (a.coursePrice || 0) - (b.coursePrice || 0));
+            return withLocalScore
+                .sort((a, b) => (a.course.coursePrice || 0) - (b.course.coursePrice || 0))
+                .map((entry) => entry.course);
         case 'price_high':
-            return courses.sort((a, b) => (b.coursePrice || 0) - (a.coursePrice || 0));
+            return withLocalScore
+                .sort((a, b) => (b.course.coursePrice || 0) - (a.course.coursePrice || 0))
+                .map((entry) => entry.course);
         case 'popularity':
-            return courses.sort((a, b) => (b.enrolledCount || 0) - (a.enrolledCount || 0));
+            return withLocalScore
+                .sort((a, b) => (b.course.enrolledCount || 0) - (a.course.enrolledCount || 0))
+                .map((entry) => entry.course);
         case 'newest':
-            return courses.sort((a, b) => {
-                const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-                const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-                return dateB - dateA;
-            });
+            return withLocalScore
+                .sort((a, b) => {
+                    const dateA = a.course.createdAt ? new Date(a.course.createdAt) : new Date(0);
+                    const dateB = b.course.createdAt ? new Date(b.course.createdAt) : new Date(0);
+                    return dateB - dateA;
+                })
+                .map((entry) => entry.course);
         case 'relevance':
         default:
-            return courses.sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0));
+            return withLocalScore
+                .sort((a, b) => {
+                    if (b._score !== a._score) return b._score - a._score;
+                    const dateA = a.course.updatedAt ? new Date(a.course.updatedAt) : new Date(0);
+                    const dateB = b.course.updatedAt ? new Date(b.course.updatedAt) : new Date(0);
+                    return dateB - dateA;
+                })
+                .map((entry) => entry.course);
     }
 };
 
@@ -193,7 +219,7 @@ const sortResults = (courses, sortBy) => {
 export const getSearchSuggestions = async (req, res) => {
     try {
         const { q } = req.query;
-        
+
         if (!q || q.length < 2) {
             return res.status(200).json({
                 success: true,

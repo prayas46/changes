@@ -2,6 +2,8 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useGetStudentDashboardQuery } from "@/features/api/authApi";
 import { useGetSearchSuggestionsQuery } from "@/features/api/searchApi";
+import { toast } from "sonner";
+import Chat from "@/components/Chat";
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,12 +20,10 @@ import {
   MessageSquare,
   Calendar,
   Settings,
-  Bell,
   Search,
   ArrowRight,
   TrendingUp,
   CalendarClock,
-  PieChart,
   Target,
   Video,
   FileText,
@@ -39,12 +39,13 @@ const getProgressColor = (value) => {
 };
 
 // 1. Sidebar Component
-const Sidebar = ({ active = "Dashboard" }) => {
+const Sidebar = ({ active = "Dashboard", canChat = false, onOpenChat }) => {
   const navigate = useNavigate();
 
   const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
     { icon: GraduationCap, label: "My learning", path: "/my-learning" },
+    { icon: MessageSquare, label: "Chat with Instructor", action: "openChat", requiresEnrollment: true },
     { icon: Settings, label: "Edit Profile", path: "/profile" },
     { icon: FileText, label: "CBT Practice", path: "/cbt" },
     { icon: HelpCircle, label: "AI Examiner", path: "/ai-examiner" },
@@ -71,7 +72,19 @@ const Sidebar = ({ active = "Dashboard" }) => {
                 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
-            onClick={() => item.path && navigate(item.path)}
+            onClick={() => {
+              if (item.requiresEnrollment && !canChat) {
+                toast.error(
+                  "You have not enrolled in any courses. Enroll in a course to access chats."
+                );
+                return;
+              }
+              if (item.action === "openChat") {
+                if (typeof onOpenChat === "function") onOpenChat();
+                return;
+              }
+              if (item.path) navigate(item.path);
+            }}
           >
             <item.icon className="h-4 w-4" />
             {item.label}
@@ -144,6 +157,7 @@ const CourseItem = ({ course, navigate }) => {
 const StudentDashboard = () => {
   const navigate = useNavigate();
   const { data, isLoading } = useGetStudentDashboardQuery();
+  const [isChatOpen, setIsChatOpen] = React.useState(false);
 
   const profile = data?.profile;
   const stats = data?.stats;
@@ -154,7 +168,6 @@ const StudentDashboard = () => {
 
   const streak = data?.streak || { current: 0, longest: 0 };
   const topicPerformance = data?.topicPerformance || [];
-  const studyDistribution = data?.studyDistribution || [];
   const upcomingExams = data?.upcomingExams || [];
 
   const firstName = profile?.firstName || "Student";
@@ -198,29 +211,6 @@ const StudentDashboard = () => {
       colorClass: colors[i % colors.length],
     }));
   }, [topicPerformance]);
-
-  const studySegments = React.useMemo(() => {
-    const base = studyDistribution && studyDistribution.length
-      ? studyDistribution
-      : [
-          { label: "Video", value: 45 },
-          { label: "Reading", value: 30 },
-          { label: "Quiz", value: 25 },
-        ];
-    const colors = [
-      { hex: "#10b981", dotClass: "bg-emerald-500" },
-      { hex: "#3b82f6", dotClass: "bg-blue-500" },
-      { hex: "#f59e0b", dotClass: "bg-amber-500" },
-      { hex: "#a855f7", dotClass: "bg-purple-500" },
-    ];
-    const total = base.reduce((sum, s) => sum + (s.value || 0), 0) || 1;
-    return base.map((s, i) => ({
-      label: s.label,
-      percent: Math.round(((s.value || 0) * 100) / total),
-      hex: colors[i % colors.length].hex,
-      dotClass: colors[i % colors.length].dotClass,
-    }));
-  }, [studyDistribution]);
 
   const [dailyGoalMinutes, setDailyGoalMinutes] = React.useState(120); // default 2h
 
@@ -289,15 +279,20 @@ const StudentDashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-zinc-950 text-slate-900 dark:text-slate-50">
-      <Sidebar />
+      <Sidebar
+        canChat={courses.length > 0}
+        onOpenChat={() => setIsChatOpen(true)}
+      />
+
+      <Chat open={isChatOpen} onOpenChange={setIsChatOpen} hideTrigger />
 
       {/* Main Layout Wrapper */}
       <div className="lg:ml-64 min-h-screen flex flex-col">
         
         {/* Header */}
-        <header className="h-16 border-b bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 px-6 flex items-center justify-between">
+        <header className="h-16 border-b bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 px-6 flex items-center">
           <div className="flex items-center gap-4 flex-1">
-            <div className="relative w-full max-w-md hidden md:block">
+            <div className="relative w-full">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
@@ -331,22 +326,6 @@ const StudentDashboard = () => {
                     ))
                   )}
                 </div>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="relative rounded-full">
-              <Bell className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-              <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-red-500 border-2 border-white dark:border-zinc-950"></span>
-            </Button>
-            <div
-              className="h-9 w-9 rounded-full bg-emerald-100 border-2 border-white dark:border-zinc-800 shadow-sm overflow-hidden cursor-pointer"
-              onClick={() => navigate("/profile")}
-            >
-              {profile?.photoUrl ? (
-                <img src={profile.photoUrl} alt="User" className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center font-bold text-emerald-700">{firstName[0]}</div>
               )}
             </div>
           </div>
@@ -529,46 +508,6 @@ const StudentDashboard = () => {
                       })}
                     </div>
                 </CardContent>
-              </Card>
-
-              {/* Study Distribution Pie Chart (API-driven proportions) */}
-              <Card>
-                  <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold flex items-center justify-between">
-                          <span>Study Distribution</span>
-                          <PieChart className="h-4 w-4 text-muted-foreground" />
-                      </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                      <div className="flex items-center gap-6">
-                        {/* Conic Gradient Pie Chart (uses segment colors/percents) */}
-                        <div 
-                            className="h-24 w-24 rounded-full flex-shrink-0 border-4 border-slate-50 dark:border-slate-900"
-                            style={{ 
-                                background: `conic-gradient(${studySegments
-                                  .map((seg, idx) => {
-                                    const start = studySegments
-                                      .slice(0, idx)
-                                      .reduce((sum, s) => sum + s.percent, 0);
-                                    const end = start + seg.percent;
-                                    return `${seg.hex} ${start}% ${end}%`;
-                                  })
-                                  .join(", ")})`
-                            }}
-                        />
-                        <div className="space-y-2 text-xs flex-1">
-                          {studySegments.map((seg, i) => (
-                            <div key={i} className="flex items-center justify-between">
-                                <span className="flex items-center gap-1.5">
-                                  <div className={`w-2 h-2 rounded-full ${seg.dotClass}`}></div>
-                                  {seg.label}
-                                </span>
-                                <span className="font-semibold">{seg.percent}%</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                  </CardContent>
               </Card>
 
               {/* Upcoming Exams */}

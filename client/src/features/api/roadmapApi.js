@@ -1,7 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
-const ROADMAP_API = import.meta.env.VITE_API_BASE_URL 
-    ? `${import.meta.env.VITE_API_BASE_URL}/roadmap`
+const ROADMAP_API = import.meta.env.VITE_API_URL
+    ? `${import.meta.env.VITE_API_URL}/roadmap`
     : "http://localhost:8080/api/v1/roadmap";
 
 export const roadmapApi = createApi({

@@ -3,15 +3,33 @@ import Filter from "./Filter";
 import SearchResult from "./SearchResult";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetSearchCourseQuery } from "@/features/api/courseApi";
+import { useGetPurchasedCoursesQuery } from "@/features/api/purchaseApi";
+import { useGetStudentDashboardQuery } from "@/features/api/authApi";
 import { Link, useSearchParams } from "react-router-dom";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import AISearchBar from "@/components/AISearchBar";
 
 const SearchPage = () => {
   const [searchParams] = useSearchParams();
-  const query = searchParams.get("query") || "/";
+  const query = searchParams.get("query") || "";
   const [selectedCategories, setSelectedCatgories] = useState([]);
   const [sortByPrice, setSortByPrice] = useState("");
+
+  const { data: purchasedData } = useGetPurchasedCoursesQuery();
+  const { data: dashboardData } = useGetStudentDashboardQuery();
+  const ownedCourseIds = React.useMemo(() => {
+    const purchases = purchasedData?.purchasedCourse || [];
+    const enrolledCourses = dashboardData?.courses || [];
+    return new Set(
+      [
+        ...purchases.map((p) => p?.courseId?._id),
+        ...enrolledCourses.map((c) => c?._id),
+      ]
+        .filter(Boolean)
+        .map((id) => String(id))
+    );
+  }, [purchasedData, dashboardData]);
 
   const { data, isLoading, error } = useGetSearchCourseQuery({
     searchQuery: query,
@@ -23,7 +41,7 @@ const SearchPage = () => {
   const courses = data?.data?.courses || [];
   const totalResults = data?.data?.totalResults || 0;
   const insights = data?.data?.insights || {};
-  const isGenericSearch = query === "/";
+  const isGenericSearch = query === "";
   const headingText = isGenericSearch
     ? totalResults > 0
       ? `${totalResults} courses available`
@@ -39,6 +57,9 @@ const SearchPage = () => {
   }
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8">
+      <div className="my-6 flex justify-center">
+        <AISearchBar />
+      </div>
       <div className="my-6">
         <h1 className="font-bold text-xl md:text-2xl">
           {headingText}
@@ -72,7 +93,13 @@ const SearchPage = () => {
           ) : isEmpty ? (
             <CourseNotFound />
           ) : (
-            courses?.map((course) => <SearchResult key={course._id} course={course}/>)
+            courses?.map((course) => (
+              <SearchResult
+                key={course._id}
+                course={course}
+                isOwned={ownedCourseIds.has(String(course._id))}
+              />
+            ))
           )}
         </div>
       </div>

@@ -1,6 +1,8 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
-const VOICE_ASSISTANT_API = "http://localhost:8080/api/v1/voice-assistant";
+const VOICE_ASSISTANT_API = (import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/voice-assistant`
+  : "http://localhost:8080/api/v1/voice-assistant");
 
 export const voiceAssistantApi = createApi({
   reducerPath: "voiceAssistantApi",
@@ -8,6 +10,7 @@ export const voiceAssistantApi = createApi({
     baseUrl: VOICE_ASSISTANT_API,
     credentials: "include",
   }),
+
   tagTypes: ["Conversation"],
   endpoints: (builder) => ({
     // Process voice/text query

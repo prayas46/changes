@@ -1,5 +1,6 @@
 import MessageContent from "./MessageContent";
 import React, { useState, useEffect, useRef } from "react";
+
 import { io } from "socket.io-client";
 import { useSelector } from "react-redux";
 import { Button, List, Avatar, Input, Badge, Modal, Spin } from "antd";
@@ -24,8 +25,26 @@ import data from "@emoji-mart/data";
 import Picker from "@emoji-mart/react";
 import { useReactMediaRecorder } from "react-media-recorder";
 
-const Chat = ({ courseId, instructorId, triggerButton }) => {
-  const [visible, setVisible] = useState(false);
+const Chat = ({
+  courseId,
+  instructorId,
+  triggerButton,
+  defaultOpen = false,
+  hideTrigger = false,
+  open,
+  onOpenChange,
+}) => {
+  const isControlled = typeof open === "boolean";
+  const [internalVisible, setInternalVisible] = useState(defaultOpen);
+  const visible = isControlled ? open : internalVisible;
+  const setVisible = (next) => {
+    if (isControlled) {
+      if (typeof onOpenChange === "function") onOpenChange(next);
+      return;
+    }
+    setInternalVisible(next);
+  };
+
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
   const [chats, setChats] = useState([]);
@@ -998,36 +1017,36 @@ const Chat = ({ courseId, instructorId, triggerButton }) => {
 
   return (
     <>
-      {triggerButton ? (
-        React.cloneElement(triggerButton, {
-          onClick: () => {
-            setVisible(true);
-            if (courseId) {
-              const existingChat = chats.find((c) => c.course._id === courseId);
-              if (existingChat) {
-                setActiveChat(existingChat);
+      {!hideTrigger &&
+        (triggerButton ? (
+          React.cloneElement(triggerButton, {
+            onClick: () => {
+              setVisible(true);
+              if (courseId) {
+                const existingChat = chats.find((c) => c.course._id === courseId);
+                if (existingChat) {
+                  setActiveChat(existingChat);
+                }
               }
-            }
-          },
-        })
-      ) : (
-        <Badge count={totalUnreadCount} offset={[-5, 5]} size="small">
-          <Button
-            type="text"
-            icon={<MessageOutlined />}
-            onClick={() => setVisible(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              color: "#2c3e50",
-              fontWeight: 500,
-            }}
-          >
-            Messages
-          </Button>
-        </Badge>
-      )}
-
+            },
+          })
+        ) : (
+          <Badge count={totalUnreadCount} offset={[-5, 5]} size="small">
+            <Button
+              type="text"
+              icon={<MessageOutlined />}
+              onClick={() => setVisible(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                color: "#2c3e50",
+                fontWeight: 500,
+              }}
+            >
+              Messages
+            </Button>
+          </Badge>
+        ))}
       <Modal
         title={
           <div style={{ display: "flex", alignItems: "center" }}>
