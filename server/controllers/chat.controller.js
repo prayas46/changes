@@ -12,7 +12,7 @@ export const sendMessage = async (req, res, next) => {
     const senderId = req.user._id;
     const senderRole = req.user.role;
 
-    // ✅ FETCH user from DB
+    // FETCH user from DB
     const sender = await User.findById(senderId);
     if (!sender) {
       return res.status(404).json({
@@ -428,9 +428,50 @@ export const getLinkPreview = async (req, res, next) => {
     if (!url) {
       return res.status(400).json({ success: false, message: "URL is required" });
     }
-    const preview = await getLinkPreviewFromPackage(url);
+ 
+    const rawUrl = String(url).trim();
+    if (!rawUrl) {
+      return res.status(400).json({ success: false, message: "URL is required" });
+    }
+ 
+    let parsed;
+    try {
+      parsed = new URL(rawUrl);
+    } catch {
+      return res.status(400).json({ success: false, message: "Invalid URL" });
+    }
+ 
+    const protocol = parsed.protocol.toLowerCase();
+    if (protocol !== "http:" && protocol !== "https:") {
+      return res
+        .status(400)
+        .json({ success: false, message: "Only http/https URLs are supported" });
+    }
+ 
+    const preview = await getLinkPreviewFromPackage(parsed.toString(), {
+      followRedirects: "follow",
+      timeout: 8000,
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "en-US,en;q=0.9",
+      },
+    });
+ 
     res.status(200).json({ success: true, data: preview });
   } catch (error) {
-    next(error);
+    res.status(200).json({
+      success: true,
+      data: {
+        url: req.query?.url,
+        title: "",
+        description: "",
+        mediaType: "",
+        contentType: "",
+        images: [],
+        videos: [],
+      },
+    });
   }
-};
+ };

@@ -4,8 +4,10 @@ import QuestionForm from '@/components/QuestionForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import axios from 'axios';
 
+const BACKEND_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8080';
+
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8080', 
+  baseURL: BACKEND_URL, 
   withCredentials: true,
 });
 

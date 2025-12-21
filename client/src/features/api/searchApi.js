@@ -1,6 +1,8 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
-const SEARCH_API = "http://localhost:8080/api/v1/search";
+const SEARCH_API = (import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/search`
+  : "http://localhost:8080/api/v1/search");
 
 export const searchApi = createApi({
   reducerPath: "searchApi",

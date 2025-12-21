@@ -12,16 +12,31 @@ const MessageContent = ({ message, user }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const API_BASE_URL =
+    import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
+
   useEffect(() => {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    if (message.messageType && message.messageType !== "text") {
+      setPreview(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    const urlRegex = /(https?:\/\/[\S]+)/g;
     const urls = message.content?.match(urlRegex);
+
+    setPreview(null);
 
     if (urls && urls.length > 0) {
       setLoading(true);
       setError(null);
       axios
         .get(
-          `http://localhost:8080/api/v1/chat/get-link-preview?url=${urls[0]}`
+          `${API_BASE_URL}/chat/get-link-preview?url=${encodeURIComponent(
+            urls[0]
+          )}`,
+          { withCredentials: true }
         )
         .then(({ data }) => {
           setPreview(data.data);
@@ -35,6 +50,26 @@ const MessageContent = ({ message, user }) => {
         });
     }
   }, [message.content]);
+
+  const getUsablePreview = (p) => {
+    if (!p) return null;
+    const title = (p.title || "").trim();
+    const description = (p.description || "").trim();
+    const url = (p.url || "").trim();
+    const hasMedia =
+      (Array.isArray(p.images) && p.images.length > 0) ||
+      (Array.isArray(p.videos) && p.videos.length > 0);
+
+    const looksLikeCloudflare =
+      /just a moment/i.test(title) || /checking your browser/i.test(title);
+
+    if (!url) return null;
+    if (looksLikeCloudflare) return null;
+    if (!title && !description && !hasMedia) return null;
+    return p;
+  };
+
+  const usablePreview = getUsablePreview(preview);
 
   const senderId =
     typeof message.sender === "string" ? message.sender : message.sender._id;
@@ -90,30 +125,32 @@ const MessageContent = ({ message, user }) => {
         );
       }
       if (error) {
-        return <div>{error}</div>;
+        return <div style={{ wordBreak: "break-word" }}>{message.content}</div>;
       }
-      if (preview) {
+      if (usablePreview) {
         return (
           <a
-            href={preview.url}
+            href={usablePreview.url}
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: "inherit", textDecoration: "none" }}
           >
-            {preview.images.length > 0 && (
+            {Array.isArray(usablePreview.images) &&
+              usablePreview.images.length > 0 && (
               <img
-                src={preview.images[0]}
-                alt={preview.title}
+                src={usablePreview.images[0]}
+                alt={usablePreview.title}
                 style={{ maxWidth: "100%", borderRadius: "8px" }}
               />
             )}
             <div style={{ padding: "8px" }}>
-              <div style={{ fontWeight: "bold" }}>{preview.title}</div>
-              <div>{preview.description}</div>
+              <div style={{ fontWeight: "bold" }}>{usablePreview.title}</div>
+              <div>{usablePreview.description}</div>
             </div>
           </a>
         );
       }
+
       return <div style={{ wordBreak: "break-word" }}>{message.content}</div>;
   }
 };

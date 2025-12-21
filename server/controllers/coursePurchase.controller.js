@@ -13,6 +13,8 @@ export const createCheckoutSession = async (req, res) => {
     const userId = req.id;
     const { courseId } = req.body;
 
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+
     const course = await Course.findById(courseId);
     if (!course) return res.status(404).json({ message: "Course not found!" });
 
@@ -41,8 +43,8 @@ export const createCheckoutSession = async (req, res) => {
         },
       ],
       mode: "payment",
-      success_url: `http://localhost:5173/course-progress/${courseId}`, // once payment successful redirect to course progress page
-      cancel_url: `http://localhost:5173/course-detail/${courseId}`,
+      success_url: `${frontendUrl}/course-progress/${courseId}`, // once payment successful redirect to course progress page
+      cancel_url: `${frontendUrl}/course-detail/${courseId}`,
       metadata: {
         courseId: courseId,
         userId: userId,
@@ -112,14 +114,6 @@ export const stripeWebhook = async (req, res) => {
       }
       purchase.status = "completed";
 
-      // Make all lectures visible by setting `isPreviewFree` to true
-      if (purchase.courseId && purchase.courseId.lectures.length > 0) {
-        await Lecture.updateMany(
-          { _id: { $in: purchase.courseId.lectures } },
-          { $set: { isPreviewFree: true } }
-        );
-      }
-
       await purchase.save();
 
       // Update user's enrolledCourses
@@ -151,8 +145,24 @@ export const getCourseDetailWithPurchaseStatus = async (req, res) => {
       .populate({ path: "creator" })
       .populate({ path: "lectures" });
 
-    const purchased = await CoursePurchase.findOne({ userId, courseId });
-    console.log(purchased);
+    const purchased = await CoursePurchase.findOne({
+      userId,
+      courseId,
+      status: "completed",
+    });
+
+    const isPurchased = !!purchased;
+
+    if (!isPurchased && course && Array.isArray(course.lectures)) {
+      course.lectures = course.lectures.map((lecture) => {
+        const safeLecture = lecture?.toObject ? lecture.toObject() : lecture;
+        if (!safeLecture?.isPreviewFree) {
+          safeLecture.videoUrl = undefined;
+        }
+        safeLecture.publicId = undefined;
+        return safeLecture;
+      });
+    }
 
     if (!course) {
       return res.status(404).json({ message: "course not found!" });
@@ -160,25 +170,35 @@ export const getCourseDetailWithPurchaseStatus = async (req, res) => {
 
     return res.status(200).json({
       course,
-      purchased: !!purchased, // true if purchased, false otherwise
+      purchased: isPurchased, // true if purchased, false otherwise
     });
   } catch (error) {
     console.log(error);
   }
 };
 
-export const getAllPurchasedCourse = async (_, res) => {
+export const getAllPurchasedCourse = async (req, res) => {
   try {
-    const purchasedCourse = await CoursePurchase.find({
-      status: "completed",
-    }).populate("courseId");
-    if (!purchasedCourse) {
-      return res.status(404).json({
-        purchasedCourse: [],
-      });
+    const userId = req.id;
+    const role = req.user?.role;
+
+    let query = { status: "completed" };
+
+    if (role === "student") {
+      query.userId = userId;
     }
+
+    const purchasedCourse = await CoursePurchase.find(query).populate("courseId");
+
+    const filteredByInstructor =
+      role === "instructor"
+        ? purchasedCourse.filter((p) =>
+            p?.courseId?.creator?.toString() === userId?.toString()
+          )
+        : purchasedCourse;
+
     return res.status(200).json({
-      purchasedCourse,
+      purchasedCourse: filteredByInstructor,
     });
   } catch (error) {
     console.log(error);

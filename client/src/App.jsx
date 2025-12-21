@@ -20,6 +20,7 @@ import CourseDetail from "./pages/student/CourseDetail";
 import CourseProgress from "./pages/student/CourseProgress";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import SearchPage from "./pages/student/SearchPage";
+import ChatPage from "./pages/student/ChatPage";
 import AIRoadmap from "./pages/student/AIRoadmap";
 import TrackProgress from "./pages/student/TrackProgress";
 import RoadmapHistory from "./pages/student/RoadmapHistory";
@@ -78,6 +79,14 @@ const appRouter = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <StudentDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "chat",
+        element: (
+          <ProtectedRoute>
+            <ChatPage />
           </ProtectedRoute>
         ),
       },
