@@ -355,3 +355,21 @@ export const getStudentDashboard = async (req, res) => {
         });
     }
 };
+
+export const googleAuth = async (req, res)=>{
+    try{
+        const {name, email}=req.body;
+        const user = await User.findOne({email})
+        console.log("name and email received");
+        if(!user){
+            user = await User.create({
+                name,
+                email
+            })
+        }
+        
+        generateToken(res, user, `Account created successfully`);
+    }catch(err){
+        return res.status(500).json({message:"Google Auth error"});
+    }
+}
