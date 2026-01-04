@@ -31,12 +31,15 @@ import apiClient from "@/api/axios";
 
 const Login = () => {
   const [showPassword, isShowPassword] = useState(false);
+  const [role, setRole]=useState("student");
   const [signupInput, setSignupInput] = useState({
     name: "",
     email: "",
     password: "",
+    role: "student"
   });
   const [loginInput, setLoginInput] = useState({ email: "", password: "" });
+
 
   const [
     registerUser,
@@ -121,7 +124,17 @@ const Login = () => {
       console.error(error);
       toast.error(error?.data?.message || `${type} failed`);
     }
-  };   
+  };
+
+  const handleRoleChange = async (role)=>{
+    try{
+      setSignupInput({...signupInput, role:role});
+      setRole(role);
+    }catch(error){
+      console.error(error);
+      toast.error(error?.data?.message || "failed to select role")
+    }
+  } 
 
   const googleSignUp = async ()=>{
     try{
@@ -129,7 +142,7 @@ const Login = () => {
       let user = response.user
       let Gname = user.displayName
       let Gemail = user.email
-      const result = await apiClient.post("/user/googleauth",{name:Gname, email:Gemail});
+      const result = await apiClient.post("/user/googleauth",{name:Gname, email:Gemail,role:role});
       dispatch(userLoggedIn({ user: result.data.user }));
       await initializeApp();
       if (result.data.user.role === "instructor"){
@@ -149,7 +162,7 @@ const Login = () => {
       let user = response.user
       let Gname = user.displayName
       let Gemail = user.email
-      const result = await apiClient.post("/user/googleauth",{name:Gname, email:Gemail});
+      const result = await apiClient.post("/user/googleauth",{name:Gname, email:Gemail,});
       dispatch(userLoggedIn({ user: result.data.user }));
       await initializeApp();
       if (result.data.user.role === "instructor"){
@@ -179,7 +192,7 @@ const Login = () => {
                 Create a new account and click signup when you're done.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-3">
               <div className="space-y-1">
                 <Label htmlFor="name">Name</Label>
                 <Input
@@ -202,23 +215,35 @@ const Login = () => {
                   required
                 />
             </div>
-              <div className="space-y-1">
-                <Label htmlFor="username">Password</Label>
-                <div className="relative">
-                  <Input
-                    type={showPassword? "":"password"}
-                    name="password"
-                    value={signupInput.password}
-                    onChange={(e) => changeInputHandler(e, "signup")}
-                    placeholder="Eg. xyz@12"
-                    className="pr-15"
-                    required
-                  />
-                  <button type="button" onClick={()=>isShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white">
-                    {showPassword? <FiEye/>:<FiEyeOff/>}
-                  </button>
-                </div>
+            <div className="space-y-1">
+              <Label htmlFor="username">Password</Label>
+              <div className="relative">
+                <Input
+                  type={showPassword? "":"password"}
+                  name="password"
+                  value={signupInput.password}
+                  onChange={(e) => changeInputHandler(e, "signup")}
+                  placeholder="Eg. xyz@12"
+                  className="pr-15"
+                  required
+                />
+                <button type="button" onClick={()=>isShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white">
+                  {showPassword? <FiEye/>:<FiEyeOff/>}
+                </button>
               </div>
+            </div>
+            <div className="space-y-1">
+              <div className="translate-y-3 flex justify-center gap-6">
+                <button className={`border-[1.5px] rounded-2xl p-1 px-4 transition-all duration-200  ${role === "student" ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-400 text-gray-500 hover:border-gray-600 dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-400"
+
+      }`} onClick={()=>handleRoleChange("student")}>
+                  Student
+                </button>
+                <button className={`border-[1.5px] rounded-2xl p-1 px-4 transition-all duration-200 ${role === "instructor" ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"  : "border-gray-400 text-gray-500 hover:border-gray-600 dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-400"  }`} onClick={()=>handleRoleChange("instructor")}>
+                  Instructor
+                </button>
+              </div>
+            </div>
             </CardContent>
             <CardContent>
               <div className="w-[100%] flex items-center gap-2 mb-2">

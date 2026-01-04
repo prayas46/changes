@@ -9,8 +9,8 @@ import { Response } from "../models/response.model.js";
 export const register = async (req,res) => {
     try {
        
-        const {name, email, password} = req.body; 
-        if(!name || !email || !password){
+        const {name, email, password, role} = req.body; 
+        if(!name || !email || !password || !role){
             return res.status(400).json({
                 success:false,
                 message:"All fields are required."
@@ -27,7 +27,8 @@ export const register = async (req,res) => {
         const savedUser =  await User.create({
             name,
             email,
-            password:hashedPassword
+            password:hashedPassword,
+            role
         });
 
         generateToken(res, savedUser, `Account created successfully`);
@@ -42,8 +43,8 @@ export const register = async (req,res) => {
 }
 export const login = async (req,res) => {
     try {
-        const {email, password} = req.body;
-        if(!email || !password){
+        const {email, password, role} = req.body;
+        if(!email || !password || !role){
             return res.status(400).json({
                 success:false,
                 message:"All fields are required."
@@ -358,16 +359,17 @@ export const getStudentDashboard = async (req, res) => {
 
 export const googleAuth = async (req, res)=>{
     try{
-        const {name, email}=req.body;
-        const user = await User.findOne({email})
-        console.log("name and email received");
+        const {name, email, role}=req.body;
+        let user = await User.findOne({email})
+        // console.log("name and email received");
         if(!user){
             user = await User.create({
                 name,
-                email
+                email,
+                role
             })
         }
-        
+        console.log()
         generateToken(res, user, `Account created successfully`);
     }catch(err){
         return res.status(500).json({message:"Google Auth error"});
