@@ -1,11 +1,21 @@
 import { Exam, ExamSubmission } from "../models/AIExaminer.model.js";
 import { uploadMedia, deleteMediaFromCloudinary } from "../utils/cloudinary.js";
-import { evaluateNeetOMR } from "../utils/neetOmrEvaluator.js";
+import { evaluateOmr as evaluateOmrUtil } from "../utils/neetOmrEvaluator.js";
+import { extractOmrJsonFromUrls } from "../utils/omrAutoEvaluator.js";
 
 export const uploadExam = async (req, res) => {
   try {
     const instructorId = req.id;
-    const { name } = req.body;
+    const {
+      name,
+      scoringConfig,
+      marksPerCorrect,
+      marksPerWrong,
+      marksPerUnattempted,
+      totalQuestions,
+      totalMarks,
+      sections,
+    } = req.body;
     const existingExam = await Exam.findOne();
 
     let newExamData = {};
@@ -15,9 +25,56 @@ export const uploadExam = async (req, res) => {
       newExamData.name = name;
     }
 
+    let scoringConfigObj = null;
+    if (scoringConfig) {
+      try {
+        scoringConfigObj =
+          typeof scoringConfig === "string"
+            ? JSON.parse(scoringConfig)
+            : scoringConfig;
+      } catch (e) {
+        scoringConfigObj = null;
+      }
+    }
+
+    if (!scoringConfigObj) {
+      const hasAnyScoringField =
+        marksPerCorrect != null ||
+        marksPerWrong != null ||
+        marksPerUnattempted != null ||
+        totalQuestions != null ||
+        totalMarks != null ||
+        sections != null;
+
+      if (hasAnyScoringField) {
+        let parsedSections = null;
+        if (sections != null) {
+          try {
+            parsedSections =
+              typeof sections === "string" ? JSON.parse(sections) : sections;
+          } catch (e) {
+            parsedSections = null;
+          }
+        }
+
+        scoringConfigObj = {
+          marksPerCorrect,
+          marksPerWrong,
+          marksPerUnattempted,
+          totalQuestions,
+          totalMarks,
+          sections: parsedSections,
+        };
+      }
+    }
+
+    if (scoringConfigObj && typeof scoringConfigObj === "object") {
+      newExamData.scoringConfig = scoringConfigObj;
+    }
+
     if (req.files && req.files.questions) {
       const questionFile = req.files.questions[0];
-      const questionResponse = await uploadMedia(questionFile.path);
+      const questionResponse = await uploadMedia(questionFile, true);
       if (!questionResponse) {
         return res
           .status(400)
@@ -34,7 +91,7 @@ export const uploadExam = async (req, res) => {
 
     if (req.files && req.files.answerKey) {
       const answerKeyFile = req.files.answerKey[0];
-      const answerKeyResponse = await uploadMedia(answerKeyFile.path);
+      const answerKeyResponse = await uploadMedia(answerKeyFile);
       if (!answerKeyResponse) {
         return res
           .status(400)
@@ -47,11 +104,13 @@ export const uploadExam = async (req, res) => {
       if (existingExam && existingExam.answerKey) {
         oldPublicIds.push(existingExam.answerKey.publicId);
       }
+
+      newExamData.omrTemplate = null;
     }
 
     if (req.files && req.files.omr) {
       const omrFile = req.files.omr[0];
-      const omrResponse = await uploadMedia(omrFile.path);
+      const omrResponse = await uploadMedia(omrFile);
       if (!omrResponse) {
         return res.status(400).json({ message: "Error on uploading omr file" });
       }
@@ -62,6 +121,8 @@ export const uploadExam = async (req, res) => {
       if (existingExam && existingExam.omrSheet) {
         oldPublicIds.push(existingExam.omrSheet.publicId);
       }
+
+      newExamData.omrTemplate = null;
     }
 
     if (existingExam) {
@@ -82,14 +143,20 @@ export const uploadExam = async (req, res) => {
         exam: updatedExam,
       });
     } else {
+      if (!newExamData.name) {
+        return res.status(400).json({ message: "exam name is required" });
+      }
+
       if (
-        !newExamData.name ||
-        !newExamData.questionPaper ||
-        !newExamData.answerKey ||
+        !newExamData.questionPaper &&
+        !newExamData.answerKey &&
         !newExamData.omrSheet
       ) {
-        return res.status(400).json({ message: "upload all files" });
+        return res
+          .status(400)
+          .json({ message: "upload at least one exam file" });
       }
+
       newExamData.instructor = instructorId;
       const newExam = await Exam.create(newExamData);
       return res.status(200).json({
@@ -108,6 +175,12 @@ export const getExam = async (req, res) => {
     const exam = await Exam.findOne().select("-answerKey");
     if (!exam) {
       return res.status(404).json({ message: "no exam has been uploaded yet" });
+    }
+    if (!exam.questionPaper || !exam.omrSheet) {
+      return res.status(400).json({
+        message:
+          "exam is incomplete; please upload question paper and blank OMR",
+      });
     }
 
     const examDetail = {
@@ -135,7 +208,7 @@ export const submitOmr = async (req, res) => {
     const studentId = req.id;
 
     const exam = await Exam.findOne();
-    if (!Exam) {
+    if (!exam) {
       return res.status(404).json({ message: "exam not found" });
     }
 
@@ -150,7 +223,7 @@ export const submitOmr = async (req, res) => {
     // // }
 
     const omrFile = req.file;
-    const omrResponse = await uploadMedia(omrFile.path);
+    const omrResponse = await uploadMedia(omrFile);
     if (!omrResponse) {
       return res.status(400).json({
         success: false,
@@ -165,6 +238,53 @@ export const submitOmr = async (req, res) => {
         publicId: omrResponse.public_id,
       },
     });
+
+    const answerKeyUrl = exam?.answerKey?.url;
+    if (answerKeyUrl) {
+      try {
+        const { answerKey, studentAnswers, bubbleCenters } =
+          await extractOmrJsonFromUrls({
+            answerKeyUrl,
+            filledOmrUrl: newSubmission.filledOmr?.url,
+            submissionId: String(newSubmission._id),
+            templateUrl: exam?.omrSheet?.url,
+            bubbleCenters: exam?.omrTemplate?.bubbleCenters,
+          });
+
+        const evaluation = evaluateOmrUtil({
+          answerKey,
+          studentAnswers,
+          scoringConfig: exam?.scoringConfig,
+        });
+        newSubmission.detectedMarks = studentAnswers;
+        newSubmission.evaluation = evaluation;
+        await newSubmission.save();
+
+        if (
+          bubbleCenters &&
+          typeof bubbleCenters === "object" &&
+          !Array.isArray(bubbleCenters) &&
+          Object.keys(bubbleCenters).length > 0 &&
+          (!exam?.omrTemplate || !exam?.omrTemplate?.bubbleCenters)
+        ) {
+          const questionCount = Object.keys(bubbleCenters).length;
+          const firstKey = Object.keys(bubbleCenters)[0];
+          const optionsCount =
+            firstKey && bubbleCenters[firstKey]
+              ? Object.keys(bubbleCenters[firstKey]).length
+              : undefined;
+
+          exam.omrTemplate = {
+            bubbleCenters,
+            questionCount,
+            optionsCount,
+            learnedAt: new Date(),
+            templateSource: exam?.omrSheet?.url ? "omrSheet" : "answerKey",
+          };
+          await exam.save();
+        }
+      } catch (error) {}
+    }
 
     return res.status(200).json({
       success: true,
@@ -200,7 +320,12 @@ export const evaluateOmr = async (req, res) => {
       return res.status(404).json({ message: "submission not found" });
     }
 
-    const evaluation = evaluateNeetOMR({ answerKey, studentAnswers });
+    const exam = await Exam.findById(submission.exam);
+    const evaluation = evaluateOmrUtil({
+      answerKey,
+      studentAnswers,
+      scoringConfig: exam?.scoringConfig,
+    });
 
     submission.detectedMarks = studentAnswers;
     submission.evaluation = evaluation;
@@ -232,6 +357,72 @@ export const getExamResult = async (req, res) => {
 
     if (!submission) {
       return res.status(404).json({ message: "submission not found" });
+    }
+
+    const shouldAutoEvaluate =
+      !submission.evaluation ||
+      !Array.isArray(submission.detectedMarks) ||
+      submission.detectedMarks.length === 0;
+
+    if (shouldAutoEvaluate) {
+      const exam = await Exam.findById(submission.exam);
+      if (!exam) {
+        return res.status(404).json({ message: "exam not found" });
+      }
+
+      const answerKeyUrl = exam?.answerKey?.url;
+      const filledOmrUrl = submission.filledOmr?.url;
+
+      try {
+        const { answerKey, studentAnswers, bubbleCenters } =
+          await extractOmrJsonFromUrls({
+            answerKeyUrl,
+            filledOmrUrl,
+            submissionId,
+            templateUrl: exam?.omrSheet?.url,
+            bubbleCenters: exam?.omrTemplate?.bubbleCenters,
+          });
+
+        const evaluation = evaluateOmrUtil({
+          answerKey,
+          studentAnswers,
+          scoringConfig: exam?.scoringConfig,
+        });
+
+        submission.detectedMarks = studentAnswers;
+        submission.evaluation = evaluation;
+        await submission.save();
+
+        if (
+          bubbleCenters &&
+          typeof bubbleCenters === "object" &&
+          !Array.isArray(bubbleCenters) &&
+          Object.keys(bubbleCenters).length > 0 &&
+          (!exam?.omrTemplate || !exam?.omrTemplate?.bubbleCenters)
+        ) {
+          const questionCount = Object.keys(bubbleCenters).length;
+          const firstKey = Object.keys(bubbleCenters)[0];
+          const optionsCount =
+            firstKey && bubbleCenters[firstKey]
+              ? Object.keys(bubbleCenters[firstKey]).length
+              : undefined;
+
+          exam.omrTemplate = {
+            bubbleCenters,
+            questionCount,
+            optionsCount,
+            learnedAt: new Date(),
+            templateSource: exam?.omrSheet?.url ? "omrSheet" : "answerKey",
+          };
+          await exam.save();
+        }
+      } catch (error) {
+        return res.status(400).json({
+          message:
+            error?.message ||
+            "Failed to auto-evaluate OMR. Check Python/OpenCV setup and ensure the template can be detected.",
+        });
+      }
     }
 
     if (!submission.evaluation) {

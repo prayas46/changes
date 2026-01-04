@@ -202,9 +202,9 @@ Open the URL shown by Vite (typically `http://localhost:5173`).
 
 ---
 
-## AI Examiner & NEET OMR Evaluation
+## AI Examiner & OMR Evaluation
 
-This module supports instructor‑uploaded NEET‑style exams and automated evaluation of OMR sheets using an external ML pipeline plus backend scoring logic.
+This module supports instructor‑uploaded exams and automated evaluation of OMR sheets using an external ML/vision pipeline plus backend scoring logic.
 
 ### Instructor flow
 
@@ -214,6 +214,7 @@ This module supports instructor‑uploaded NEET‑style exams and automated eval
     - `questions` – question paper file (PDF/image).
     - `answerKey` – filled OMR answer key uploaded by instructor (not exposed to students).
     - `omr` – blank OMR sheet template.
+    - `scoringConfig` – optional JSON string to override scoring and section mapping.
 - Backend stores these in the `AIExam` collection and cleans up old Cloudinary files when updating.
 
 ### Student flow
@@ -224,10 +225,15 @@ This module supports instructor‑uploaded NEET‑style exams and automated eval
   - Multipart form‑data with file field `filledOMR`.
   - Stores the scanned sheet in `AIExamSubmission` as `filledOmr` and returns `submissionId`.
 
+When the instructor answer key is available, the backend will also attempt to automatically run the OMR pipeline and store:
+
+- `detectedMarks`
+- `evaluation`
+
 ### ML + backend evaluation contract
 
 The actual OMR detection is performed by an external ML/vision pipeline (e.g. Python + OpenCV + CNN).  
-The Node.js backend receives only the decoded answers and applies NEET marking:
+The Node.js backend receives only the decoded answers and applies configurable marking.
 
 - **Endpoint** – `POST /api/v1/examiner/exam/evaluate/:submissionId`
 - **Request body** (JSON):
@@ -247,18 +253,15 @@ The Node.js backend receives only the decoded answers and applies NEET marking:
 }
 ```
 
-- **Scoring rules (NEET)**:
-  - +4 for correct answers.
-  - −1 for incorrect answers.
-  - 0 for unattempted questions.
-- **Subject mapping**:
-  - Q1–50 → Physics.
-  - Q51–100 → Chemistry.
-  - Q101–180 → Biology.
+- **Scoring rules** come from `AIExam.scoringConfig` (defaults are NEET‑compatible):
+  - `marksPerCorrect` (default `+4`)
+  - `marksPerWrong` (default `-1`)
+  - `marksPerUnattempted` (default `0`)
+  - `sections` (default NEET sections: Physics/Chemistry/Biology)
 
 The backend utility `neetOmrEvaluator` computes:
 
-- Physics, Chemistry, Biology marks and total (out of 720).
+- Total marks, total possible marks, and (when configured) section‑wise marks.
 - Count of correct, incorrect and unattempted questions.
 - A list of all wrong questions with the student’s option and the correct option.
 
@@ -269,22 +272,41 @@ These results are saved back into `AIExamSubmission` as:
 
 The API response from `/exam/evaluate/:submissionId` returns both `detectedMarks` and `evaluation` so the frontend can first display all detected points on the OMR image and then show a detailed per‑subject result table for the student.
 
+### Auto‑evaluation (optional but enabled)
+
+To make the app testable end‑to‑end without manually calling `/exam/evaluate/:submissionId`, the backend will also attempt to auto‑evaluate when fetching results:
+
+- **Get exam result** – `GET /api/v1/examiner/exam/result/:submissionId`
+
+If `detectedMarks` / `evaluation` are missing, the backend downloads the instructor answer key, the student filled OMR, and (if available) the blank OMR template. It then runs the Python pipeline under `omr/omr_pipeline.py`.
+
+The backend caches the learned OMR layout (bubble centers) into `AIExam.omrTemplate` so subsequent evaluations reuse the same detected template.
+
+Requirements:
+
+- Python installed and available as `python` (Windows users can also set `OMR_PYTHON=py`).
+- OpenCV installed in that Python environment.
+
 ### Python OMR utilities (ML side)
 
 For experiments and integration with external ML models, the repository includes helper Python scripts under the `omr/` folder:
 
 - `omr/bubble_map.py`
 
-  - Defines `BUBBLE_CENTERS`, a mapping from `questionNumber` and option (`A`–`D`) to `(x, y)` coordinates on the aligned OMR image.
-  - You must update these coordinates to match your final OMR template.
+  - Defines `BUBBLE_CENTERS`, a legacy/example mapping from `questionNumber` and option (e.g. `A`–`D`) to `(x, y)` coordinates on the aligned OMR image.
+  - The generalized pipeline attempts to learn the bubble layout automatically; this file is mainly useful for legacy/manual setups.
 
 - `omr/omr_pipeline.py`
 
-  - CLI to generate `answerKey` and `studentAnswers` JSON using OpenCV and an optional CNN:
+  - CLI to learn bubble layout and generate `answerKey` / `studentAnswers` JSON using OpenCV and an optional CNN:
+    - Learn template bubble centers →
+      `python omr/omr_pipeline.py --mode template --image path/to/blank_omr.jpg`
     - Answer‑key sheet →  
       `python omr/omr_pipeline.py --mode answer_key --image path/to/answer_key.jpg`
     - Student sheet →  
       `python omr/omr_pipeline.py --mode student --image path/to/student_omr.jpg`
+    - Reuse a learned bubble map →
+      `python omr/omr_pipeline.py --mode student --image path/to/student_omr.jpg --bubble-map bubble_map.json`
   - Outputs JSON compatible with the `/exam/evaluate/:submissionId` API.
 
 - `omr/omr_call_backend.py`

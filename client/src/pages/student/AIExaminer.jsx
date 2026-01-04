@@ -3,6 +3,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import DownloadButton from "@/components/ui/downloadButton";
@@ -13,7 +14,8 @@ const AIExaminer = () => {
   const navigate = useNavigate();
 
   const [omrFile, setOmrFile] = useState(null);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploaded, setUploaded] = useState(false);
   const [examData, setExamData] = useState(null); 
 
@@ -47,12 +49,20 @@ const AIExaminer = () => {
   const handleSubmit= async ()=>{
     try{
 
+      setLoading(true);
+      setUploadProgress(0);
+
       const formData = new FormData();
       if(omrFile){
         formData.append("filledOMR",omrFile);
       }
 
-      const response = await apiClient.post("/examiner/exam/submitOmr", formData);
+      const response = await apiClient.post("/examiner/exam/submitOmr", formData, {
+        onUploadProgress: ({ loaded, total }) => {
+          if (!total) return;
+          setUploadProgress(Math.round((loaded * 100) / total));
+        },
+      });
       if(response.data.success){
         toast.success(response.data.message);
         const submissionId = response.data?.submission?._id;
@@ -62,6 +72,8 @@ const AIExaminer = () => {
       }
     }catch(err){
       toast.error(err.response?.data?.message || "failed to submit exman")
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -108,7 +120,7 @@ const AIExaminer = () => {
                 type="file"
                 accept="image/*"
                 onChange={handleOMRUpload}
-                disabled={uploaded}
+                disabled={uploaded || loading}
               />
               {omrFile && (
                 <p className="text-sm text-muted-foreground">
@@ -116,11 +128,26 @@ const AIExaminer = () => {
                 </p>
               )}
             </div>
+
+            {loading && (
+              <div className="space-y-2">
+                <Progress value={uploadProgress} />
+                <p className="text-xs text-muted-foreground">
+                  {uploadProgress < 100
+                    ? `Uploading... ${uploadProgress}%`
+                    : "Processing..."}
+                </p>
+              </div>
+            )}
           </CardContent>
 
           <CardFooter>
             <Button onClick={handleSubmit} disabled={loading || !uploaded}>
-              {loading ? "Uploading..." : uploaded ? "Upload" : "Upload"}
+              {loading
+                ? uploadProgress < 100
+                  ? `Uploading... ${uploadProgress}%`
+                  : "Processing..."
+                : "Upload"}
             </Button>
           </CardFooter>
         </Card>

@@ -38,10 +38,16 @@ const AIExaminerResult = () => {
     }
   }, [submissionId]);
 
-  const physicsMarks = evaluation?.physicsMarks ?? 0;
-  const chemistryMarks = evaluation?.chemistryMarks ?? 0;
-  const biologyMarks = evaluation?.biologyMarks ?? 0;
   const totalMarks = evaluation?.totalMarks ?? 0;
+  const totalPossibleMarks = evaluation?.totalPossibleMarks;
+  const sectionMarks = Array.isArray(evaluation?.sectionMarks)
+    ? evaluation.sectionMarks
+    : null;
+  const legacySections = [
+    { name: "Physics", marks: evaluation?.physicsMarks ?? 0 },
+    { name: "Chemistry", marks: evaluation?.chemistryMarks ?? 0 },
+    { name: "Biology", marks: evaluation?.biologyMarks ?? 0 },
+  ];
   const wrongQuestions = evaluation?.wrongQuestions || [];
 
   return (
@@ -86,15 +92,21 @@ const AIExaminerResult = () => {
             <div className="bg-white dark:bg-gray-800 rounded-md mx-6 mb-6 p-4 text-left">
               <h2 className="text-xl font-semibold mb-2">Marks Summary</h2>
               <div className="grid grid-cols-2 gap-4">
-                <div className="font-semibold">Physics</div>
-                <div>{physicsMarks}</div>
-                <div className="font-semibold">Chemistry</div>
-                <div>{chemistryMarks}</div>
-                <div className="font-semibold">Biology</div>
-                <div>{biologyMarks}</div>
+                {(sectionMarks && sectionMarks.length > 0
+                  ? sectionMarks
+                  : legacySections
+                ).map((s, idx) => (
+                  <React.Fragment key={idx}>
+                    <div className="font-semibold">{s?.name}</div>
+                    <div>{s?.marks ?? 0}</div>
+                  </React.Fragment>
+                ))}
               </div>
               <div className="mt-4 text-lg font-bold">
-                Total: {totalMarks}/720
+                Total: {totalMarks}
+                {Number.isFinite(Number(totalPossibleMarks))
+                  ? `/${Number(totalPossibleMarks)}`
+                  : ""}
               </div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-md mx-6 mb-6 p-4 text-left">

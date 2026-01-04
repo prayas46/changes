@@ -9,6 +9,45 @@
 
 import mongoose from "mongoose";
 
+const omrTemplateSchema = new mongoose.Schema(
+  {
+    bubbleCenters: mongoose.Schema.Types.Mixed,
+    questionCount: Number,
+    optionsCount: Number,
+    learnedAt: Date,
+    templateSource: String,
+  },
+  { _id: false }
+);
+
+const scoringSectionSchema = new mongoose.Schema(
+  {
+    name: String,
+    startQuestion: Number,
+    endQuestion: Number,
+  },
+  { _id: false }
+);
+
+const scoringConfigSchema = new mongoose.Schema(
+  {
+    marksPerCorrect: { type: Number, default: 4 },
+    marksPerWrong: { type: Number, default: -1 },
+    marksPerUnattempted: { type: Number, default: 0 },
+    totalQuestions: { type: Number, default: 180 },
+    totalMarks: { type: Number, default: 720 },
+    sections: {
+      type: [scoringSectionSchema],
+      default: [
+        { name: "Physics", startQuestion: 1, endQuestion: 50 },
+        { name: "Chemistry", startQuestion: 51, endQuestion: 100 },
+        { name: "Biology", startQuestion: 101, endQuestion: 180 },
+      ],
+    },
+  },
+  { _id: false }
+);
+
 const examSchema = new mongoose.Schema(
   {
     name: {
@@ -32,6 +71,8 @@ const examSchema = new mongoose.Schema(
       url: String,
       publicId: String,
     },
+    omrTemplate: omrTemplateSchema,
+    scoringConfig: scoringConfigSchema,
   },
   { timestamps: true }
 );
@@ -40,7 +81,7 @@ const examSubmissionSchenma = new mongoose.Schema(
   {
     exam: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Exam",
+      ref: "AIExam",
       required: true,
     },
     student: {
@@ -66,6 +107,7 @@ const examSubmissionSchenma = new mongoose.Schema(
       chemistryMarks: Number,
       biologyMarks: Number,
       totalMarks: Number,
+      totalPossibleMarks: Number,
       correctCount: Number,
       incorrectCount: Number,
       unattemptedCount: Number,
@@ -75,6 +117,15 @@ const examSubmissionSchenma = new mongoose.Schema(
           subject: String,
           selectedOption: String,
           correctOption: String,
+        },
+      ],
+      sectionMarks: [
+        {
+          name: String,
+          marks: Number,
+          correctCount: Number,
+          incorrectCount: Number,
+          unattemptedCount: Number,
         },
       ],
     },
