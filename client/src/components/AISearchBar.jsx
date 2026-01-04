@@ -76,9 +76,9 @@ const AISearchBar = ({ placeholder = "Search courses...", className = "" }) => {
           onFocus={handleFocus}
           onBlur={handleBlur}
           placeholder={placeholder}
-          className={`pl-12 pr-24 py-6 text-lg rounded-full border-2 border-gray-300 focus:border-blue-500 shadow-lg ${className}`}
+          className={`pl-12 mr-6 py-6 text-lg rounded-full border-2 border-gray-300 focus:border-blue-500 shadow-lg ${className}`}
         />
-        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+        <Search className="absolute  left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
         <Button
           onClick={() => handleSearch()}
           disabled={!searchQuery.trim()}
@@ -90,7 +90,7 @@ const AISearchBar = ({ placeholder = "Search courses...", className = "" }) => {
 
       {/* Auto-complete Suggestions */}
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0  mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
           <div className="p-2">
             <div className="text-xs text-gray-500 mb-2 flex items-center">
               Suggestions
