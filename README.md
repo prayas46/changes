@@ -7,22 +7,18 @@ SmartEdu is a full‑stack learning platform that combines classic e‑learning 
 ## Core Features
 
 - **Role‑based access**
-
   - Student and Instructor roles with distinct dashboards and routes.
   - Protected routes and admin‑only sections on the same domain.
 
 - **Course Management**
-
   - Instructors can create, edit, and manage courses and lectures.
   - Students can browse courses, enroll, and track course progress.
 
 - **Student Dashboard**
-
   - "My Learning" section for enrolled courses.
   - Course progress view and detailed lecture pages.
 
 - **Real‑Time Chat (Student ↔ Instructor)**
-
   - One‑to‑one chat per course between student and instructor.
   - Text, file, image, audio, and video messages.
   - Read receipts and typing indicators.
@@ -30,13 +26,11 @@ SmartEdu is a full‑stack learning platform that combines classic e‑learning 
   - Message and chat deletion (for both sides) with proper last‑message updates.
 
 - **AI & Exam Features**
-
   - AI‑assisted examiner flows for students and instructors.
   - College predictor and roadmap utilities.
   - OMR / prediction and reporting features planned or under development.
 
 - **Authentication & Security**
-
   - Email/password login with JWT (HTTP‑only cookies).
   - Role embedded in the token and enforced on both backend and frontend.
   - Protected API routes and admin‑only middleware.
@@ -51,7 +45,6 @@ SmartEdu is a full‑stack learning platform that combines classic e‑learning 
 ## Tech Stack
 
 - **Frontend**
-
   - React (Vite)
   - React Router
   - Redux Toolkit & RTK Query (for auth & data fetching)
@@ -257,7 +250,12 @@ The Node.js backend receives only the decoded answers and applies configurable m
   - `marksPerCorrect` (default `+4`)
   - `marksPerWrong` (default `-1`)
   - `marksPerUnattempted` (default `0`)
-  - `sections` (default NEET sections: Physics/Chemistry/Biology)
+  - `sections` (default NEET ranges: Physics `1–45`, Chemistry `46–90`, Biology `91–180`)
+
+Subject mapping is NEET‑style and can be inferred from the OMR layout:
+
+- **Column mapping**: column 1 → Physics, column 2 → Chemistry, columns 3 & 4 → Biology.
+- If the pipeline can’t infer columns (e.g. missing coordinates), the backend falls back to the `sections` ranges.
 
 The backend utility `neetOmrEvaluator` computes:
 
@@ -280,24 +278,30 @@ To make the app testable end‑to‑end without manually calling `/exam/evaluate
 
 If `detectedMarks` / `evaluation` are missing, the backend downloads the instructor answer key, the student filled OMR, and (if available) the blank OMR template. It then runs the Python pipeline under `omr/omr_pipeline.py`.
 
+Optionally, you can switch the backend to use the newer NEET CLI (`omr/main.py`) which returns both decoded answers and NEET scoring output:
+
+```env
+OMR_USE_PY_MAIN=1
+```
+
 The backend caches the learned OMR layout (bubble centers) into `AIExam.omrTemplate` so subsequent evaluations reuse the same detected template.
 
 Requirements:
 
 - Python installed and available as `python` (Windows users can also set `OMR_PYTHON=py`).
 - OpenCV installed in that Python environment.
+- Install Python deps (for the OMR folder) with:
+  - `pip install -r omr/requirements.txt`
 
 ### Python OMR utilities (ML side)
 
 For experiments and integration with external ML models, the repository includes helper Python scripts under the `omr/` folder:
 
 - `omr/bubble_map.py`
-
   - Defines `BUBBLE_CENTERS`, a legacy/example mapping from `questionNumber` and option (e.g. `A`–`D`) to `(x, y)` coordinates on the aligned OMR image.
   - The generalized pipeline attempts to learn the bubble layout automatically; this file is mainly useful for legacy/manual setups.
 
 - `omr/omr_pipeline.py`
-
   - CLI to learn bubble layout and generate `answerKey` / `studentAnswers` JSON using OpenCV and an optional CNN:
     - Learn template bubble centers →
       `python omr/omr_pipeline.py --mode template --image path/to/blank_omr.jpg`
@@ -308,6 +312,30 @@ For experiments and integration with external ML models, the repository includes
     - Reuse a learned bubble map →
       `python omr/omr_pipeline.py --mode student --image path/to/student_omr.jpg --bubble-map bubble_map.json`
   - Outputs JSON compatible with the `/exam/evaluate/:submissionId` API.
+
+- `omr/main.py`
+  - NEET evaluator CLI that can decode a filled OMR + answer key and return a single JSON object containing:
+    - `sectionWiseMarks` (Section A/B/C)
+    - `subjectWiseMarks` (Physics/Chemistry/Biology)
+    - totals and counts (correct/incorrect/unattempted)
+  - Run:
+    ```bash
+    pip install -r omr/requirements.txt
+    python omr/main.py --image path/to/student_omr.jpg --config path/to/config.json
+    ```
+  - Minimal config shape:
+    ```json
+    {
+      "answerKeyImage": "path/to/answer_key.jpg",
+      "templateImage": "path/to/blank_omr.jpg",
+      "selectionThreshold": 0.25,
+      "scoring": {
+        "marksPerCorrect": 4,
+        "marksPerWrong": -1,
+        "marksPerUnattempted": 0
+      }
+    }
+    ```
 
 - `omr/omr_call_backend.py`
   - CLI to send previously generated JSON to the backend:

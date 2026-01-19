@@ -39,9 +39,9 @@ const scoringConfigSchema = new mongoose.Schema(
     sections: {
       type: [scoringSectionSchema],
       default: [
-        { name: "Physics", startQuestion: 1, endQuestion: 50 },
-        { name: "Chemistry", startQuestion: 51, endQuestion: 100 },
-        { name: "Biology", startQuestion: 101, endQuestion: 180 },
+        { name: "Physics", startQuestion: 1, endQuestion: 45 },
+        { name: "Chemistry", startQuestion: 46, endQuestion: 90 },
+        { name: "Biology", startQuestion: 91, endQuestion: 180 },
       ],
     },
   },
@@ -102,6 +102,7 @@ const examSubmissionSchenma = new mongoose.Schema(
         confidence: Number,
       },
     ],
+    scoringConfig: scoringConfigSchema,
     evaluation: {
       physicsMarks: Number,
       chemistryMarks: Number,
@@ -111,6 +112,17 @@ const examSubmissionSchenma = new mongoose.Schema(
       correctCount: Number,
       incorrectCount: Number,
       unattemptedCount: Number,
+      subjectWiseMarks: mongoose.Schema.Types.Mixed,
+      sectionWiseMarks: [
+        {
+          name: String,
+          subject: String,
+          marks: Number,
+          correctCount: Number,
+          incorrectCount: Number,
+          unattemptedCount: Number,
+        },
+      ],
       wrongQuestions: [
         {
           questionNumber: Number,

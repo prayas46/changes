@@ -1,0 +1,259 @@
+﻿Diagnose log at 2026-01-04T18:10:11Z
+
+AppPath: C:\Program Files\Git\mingw64\bin\git-credential-manager.exe
+InstallDir: C:\Program Files\Git\mingw64\bin\
+Version: 2.6.1+786ab03440ddc82e807a97c0e540f5247e44cec6
+
+------------
+Diagnostic: Environment
+Skipped: False
+Success: True
+Exception: None
+Log:
+OSType: Windows
+OSVersion: 10.0 (build 26200)
+Reading environment variables... OK
+ Variables:
+HOMEPATH=\Users\praya
+DriverData=C:\Windows\System32\Drivers\DriverData
+COMPUTERNAME=PRAYAS
+GIT_TRACE2_PARENT_SID=ef718bb5-54d8-4052-a082-8c12d36da2d8
+CommonProgramFiles(x86)=C:\Program Files (x86)\Common Files
+WINDSURF_CASCADE_TERMINAL_KIND=inherit
+OneDrive=C:\Users\praya\OneDrive
+ChocolateyLastPathUpdate=133981944577962488
+PYTHON_BASIC_REPL=1
+SESSIONNAME=Console
+EFC_8996_2775293581=1
+TMP=C:\Users\praya\AppData\Local\Temp
+PROCESSOR_REVISION=a000
+USERDOMAIN=PRAYAS
+PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC;.CPL
+VSCODE_INJECTION=1
+GIT_ASKPASS=c:\Users\praya\AppData\Local\Programs\Windsurf\resources\app\extensions\git\dist\askpass.sh
+GIT_EXEC_PATH=C:/Program Files/Git/mingw64/libexec/git-core
+EFC_8996_3789132940=1
+TEMP=C:\Users\praya\AppData\Local\Temp
+LOCALAPPDATA=C:\Users\praya\AppData\Local
+MSYSTEM=MINGW64
+TERM=xterm-256color
+PROCESSOR_IDENTIFIER=AMD64 Family 23 Model 160 Stepping 0, AuthenticAMD
+VSCODE_PYTHON_AUTOACTIVATE_GUARD=1
+ProgramW6432=C:\Program Files
+PYTHONSTARTUP=c:\Users\praya\AppData\Roaming\Windsurf\User\workspaceStorage\368b3dc2123f4c744ce1e95e0b62ae1d\ms-python.python\pythonrc.py
+EFC_8996_1262719628=1
+TERM_PROGRAM=vscode
+WINDSURF_CASCADE_TERMINAL=1
+PAGER=cat
+Path=C:/Program Files/Git/mingw64/libexec/git-core;C:\Program Files\Git\mingw64\bin;C:\Program Files\Git\usr\bin;C:\Users\praya\bin;C:\Program Files\PowerShell\7;C:\Program Files\Common Files\Oracle\Java\javapath;C:\Program Files (x86)\Common Files\Oracle\Java\java8path;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\gcc-15.1.0-gdb-16.3.90.20250511-binutils-2.44-mingw-w64-v12.0.0-ucrt\bin;C:\Program Files\Docker\Docker\resources\bin;C:\ProgramData\chocolatey\bin;C:\Program Files\Git\cmd;C:\Users\praya\AppData\Local\nvm;C:\nvm4w\nodejs;C:\Program Files\PowerShell\7\;C:\Program Files\GitHub CLI\;C:\Users\praya\AppData\Local\pnpm;C:\Users\praya\AppData\Local\Programs\Python\Python311\Scripts\;C:\Users\praya\AppData\Local\Programs\Python\Python311\;C:\Users\praya\AppData\Local\Programs\Python\Python312\Scripts\;C:\Users\praya\AppData\Local\Programs\Python\Python312\;C:\Users\praya\AppData\Local\Microsoft\WindowsApps;C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2025.2.5\bin;C:\Users\praya\AppData\Local\Programs\Microsoft VS Code\bin;C:\Users\praya\AppData\Local\Programs\cursor\resources\app\bin;C:\Users\praya\AppData\Roaming\npm;C:\Users\praya\AppData\Local\GitHubDesktop\bin;C:\Users\praya\AppData\Local\nvm;C:\nvm4w\nodejs;C:\Users\praya\anaconda3\Scripts;C:\Users\praya\AppData\Local\Programs\Windsurf\bin;C:\Users\praya\.bun\bin;C:\Users\praya\.bun\bin
+POWERSHELL_DISTRIBUTION_CHANNEL=MSI:Windows 10 Home Single Language
+PROCESSOR_LEVEL=23
+NUMBER_OF_PROCESSORS=8
+TMPDIR=C:\Users\praya\AppData\Local\Temp
+VSCODE_GIT_ASKPASS_EXTRA_ARGS=
+APPDATA=C:\Users\praya\AppData\Roaming
+TERM_PROGRAM_VERSION=1.106.0
+VSCODE_GIT_ASKPASS_MAIN=c:\Users\praya\AppData\Local\Programs\Windsurf\resources\app\extensions\git\dist\askpass-main.js
+ProgramFiles(x86)=C:\Program Files (x86)
+PUBLIC=C:\Users\Public
+VSCODE_GIT_IPC_HANDLE=\\.\pipe\vscode-git-0ccc4e69d9-sock
+FPS_BROWSER_USER_PROFILE_STRING=Default
+CommonProgramFiles=C:\Program Files (x86)\Common Files
+NODE_OPTIONS= --require c:/Users/praya/AppData/Roaming/Windsurf/User/workspaceStorage/368b3dc2123f4c744ce1e95e0b62ae1d/ms-vscode.js-debug/bootloader.js 
+EFC_8996_2283032206=1
+CHROME_CRASHPAD_PIPE_NAME=\\.\pipe\crashpad_9092_ERETQUQHIBOJLPYW
+PNPM_HOME=C:\Users\praya\AppData\Local\pnpm
+PLINK_PROTOCOL=ssh
+ProgramData=C:\ProgramData
+ProgramFiles=C:\Program Files (x86)
+GIT_PAGER=cat
+ChocolateyInstall=C:\ProgramData\chocolatey
+EFC_8996_1592913036=1
+VSCODE_GIT_ASKPASS_NODE=C:\Users\praya\AppData\Local\Programs\Windsurf\Windsurf.exe
+SystemRoot=C:\WINDOWS
+NVM_SYMLINK=C:\nvm4w\nodejs
+NVM_HOME=C:\Users\praya\AppData\Local\nvm
+ORIGINAL_XDG_CURRENT_DESKTOP=undefined
+HOME=C:\Users\praya
+CommonProgramW6432=C:\Program Files\Common Files
+LOGONSERVER=\\PRAYAS
+VSCODE_INSPECTOR_OPTIONS=:::{"inspectorIpc":"\\\\.\\pipe\\node-cdp.23440-ebeb76cc-0.sock.deferred","deferredMode":true,"waitForDebugger":"","execPath":"C:\\nvm4w\\nodejs\\node.exe","onlyEntrypoint":false,"autoAttachMode":"always"}
+USERPROFILE=C:\Users\praya
+COLORTERM=truecolor
+USERDOMAIN_ROAMINGPROFILE=PRAYAS
+IntelliJ IDEA Community Edition=C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2025.2.5\bin
+HOMEDRIVE=C:
+PSModulePath=C:\Users\praya\OneDrive\Pictures\Documents\PowerShell\Modules;C:\Program Files\PowerShell\Modules;c:\program files\powershell\7\Modules;C:\Program Files\WindowsPowerShell\Modules;C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules
+USERNAME=praya
+PROCESSOR_ARCHITEW6432=AMD64
+FPS_BROWSER_APP_PROFILE_STRING=Internet Explorer
+PROCESSOR_ARCHITECTURE=x86
+OS=Windows_NT
+ComSpec=C:\WINDOWS\system32\cmd.exe
+SystemDrive=C:
+windir=C:\WINDOWS
+LANG=en_US.UTF-8
+ALLUSERSPROFILE=C:\ProgramData
+
+
+------------
+Diagnostic: File system
+Skipped: False
+Success: True
+Exception: None
+Log:
+Temporary directory is 'C:\Users\praya\AppData\Local\Temp\'...
+Checking basic file I/O...
+Writing to temporary file 'C:\Users\praya\AppData\Local\Temp\96044470b5951d23475fc54a'... OK
+Reading from temporary file 'C:\Users\praya\AppData\Local\Temp\96044470b5951d23475fc54a'... OK
+Deleting temporary file 'C:\Users\praya\AppData\Local\Temp\96044470b5951d23475fc54a'... OK
+Testing IFileSystem instance...
+UserHomePath: C:\Users\praya
+UserDataDirectoryPath: C:\Users\praya\.gcm
+GetCurrentDirectory(): E:\CODING\changes
+
+------------
+Diagnostic: Networking
+Skipped: False
+Success: True
+Exception: None
+Log:
+Checking networking and HTTP stack...
+Creating HTTP client... OK
+IsNetworkAvailable: True
+Sending HEAD request to http://example.com...Sending HEAD request to https://example.com... OK
+ OK
+Acquiring free TCP port... OK
+Testing local HTTP loopback connections...
+Creating new HTTP listener for http://localhost:50380/... OK
+Waiting for loopback connection... OK
+Writing response... OK
+Waiting for response data... OK
+Loopback connection data OK
+
+------------
+Diagnostic: Git
+Skipped: False
+Success: True
+Exception: None
+Log:
+Getting Git version... OK
+Git version is '2.50.1.windows.1'
+Locating current repository...Git repository at 'E:/CODING/changes/.git'
+ OK
+Listing all Git configuration... OK
+Git configuration:
+file:C:/Program Files/Git/etc/gitconfig	diff.astextplain.textconv=astextplain
+file:C:/Program Files/Git/etc/gitconfig	filter.lfs.clean=git-lfs clean -- %f
+file:C:/Program Files/Git/etc/gitconfig	filter.lfs.smudge=git-lfs smudge -- %f
+file:C:/Program Files/Git/etc/gitconfig	filter.lfs.process=git-lfs filter-process
+file:C:/Program Files/Git/etc/gitconfig	filter.lfs.required=true
+file:C:/Program Files/Git/etc/gitconfig	http.sslbackend=schannel
+file:C:/Program Files/Git/etc/gitconfig	core.autocrlf=true
+file:C:/Program Files/Git/etc/gitconfig	core.fscache=true
+file:C:/Program Files/Git/etc/gitconfig	core.symlinks=true
+file:C:/Program Files/Git/etc/gitconfig	pull.rebase=false
+file:C:/Program Files/Git/etc/gitconfig	credential.helper=manager
+file:C:/Program Files/Git/etc/gitconfig	credential.https://dev.azure.com.usehttppath=true
+file:C:/Program Files/Git/etc/gitconfig	init.defaultbranch=master
+file:C:/Users/praya/.gitconfig	core.editor="C:\Users\praya\AppData\Local\Programs\Microsoft VS Code\bin\code" --wait
+file:C:/Users/praya/.gitconfig	filter.lfs.clean=git-lfs clean -- %f
+file:C:/Users/praya/.gitconfig	filter.lfs.smudge=git-lfs smudge -- %f
+file:C:/Users/praya/.gitconfig	filter.lfs.process=git-lfs filter-process
+file:C:/Users/praya/.gitconfig	filter.lfs.required=true
+file:C:/Users/praya/.gitconfig	user.name=Prayas Mondal
+file:C:/Users/praya/.gitconfig	user.email=prayaspratyaymondal@gmail.com
+file:C:/Users/praya/.gitconfig	credential.https://orchids.git.storage.provider=generic
+file:C:/Users/praya/.gitconfig	credential.https://orchids.code.storage.provider=generic
+file:.git/config	core.repositoryformatversion=0
+file:.git/config	core.filemode=false
+file:.git/config	core.bare=false
+file:.git/config	core.logallrefupdates=true
+file:.git/config	core.symlinks=false
+file:.git/config	core.ignorecase=true
+file:.git/config	remote.upstream.url=https://github.com/arpi2003ta/changes.git
+file:.git/config	remote.upstream.fetch=+refs/heads/*:refs/remotes/upstream/*
+file:.git/config	branch.main.remote=origin
+file:.git/config	branch.main.vscode-merge-base=origin/main
+file:.git/config	branch.main.gk-last-accessed=2026-01-04T18:06:17.773Z
+file:.git/config	branch.main.gk-last-modified=2026-01-04T18:06:17.773Z
+file:.git/config	branch.main.merge=refs/heads/main
+file:.git/config	branch.04-video-call-added-OMR-added.vscode-merge-base=origin/main
+file:.git/config	branch.04-video-call-added-OMR-added.remote=upstream
+file:.git/config	branch.04-video-call-added-OMR-added.merge=refs/heads/04-video-call-added-OMR-added
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#6
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#6
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#6
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#6
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#6
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.github-pr-owner-number=arpi2003ta#changes#7
+file:.git/config	branch.04-video-call-added-OMR-added.gk-last-accessed=2025-12-21T14:05:41.252Z
+file:.git/config	branch.03-Voice-Call-Feature-Added.remote=upstream
+file:.git/config	branch.03-Voice-Call-Feature-Added.merge=refs/heads/03-Voice-Call-Feature-Added
+file:.git/config	branch.03-Voice-Call-Feature-Added.vscode-merge-base=origin/03-Voice-Call-Feature-Added
+file:.git/config	remote.origin.url=https://github.com/prayas46/changes.git
+file:.git/config	remote.origin.fetch=+refs/heads/*:refs/remotes/origin/*
+
+
+------------
+Diagnostic: Credential storage
+Skipped: False
+Success: True
+Exception: None
+Log:
+ICredentialStore instance is of type: CredentialStore
+Writing test credential... OK
+Reading test credential... OK
+Deleting test credential... OK
+
+------------
+Diagnostic: Microsoft authentication (AAD/MSA)
+Skipped: False
+Success: True
+Exception: None
+Log:
+Broker is not enabled.
+Flow type is: Auto
+Gathering MSAL token cache data... OK
+CacheDirectory: C:\Users\praya\AppData\Local\.IdentityService
+CacheFileName: msal.cache
+CacheFilePath: C:\Users\praya\AppData\Local\.IdentityService\msal.cache
+Creating cache helper... OK
+Verifying MSAL token cache persistence... OK
+
+------------
+Diagnostic: GitHub API
+Skipped: False
+Success: True
+Exception: None
+Log:
+Using 'https://github.com/' as API target.
+Querying '/meta' endpoint... OK
+

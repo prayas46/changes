@@ -133,7 +133,7 @@ export const uploadExam = async (req, res) => {
         await Promise.all(
           oldPublicIds
             .filter((id) => id)
-            .map((id) => deleteMediaFromCloudinary(id))
+            .map((id) => deleteMediaFromCloudinary(id)),
         );
       }
 
@@ -242,22 +242,30 @@ export const submitOmr = async (req, res) => {
     const answerKeyUrl = exam?.answerKey?.url;
     if (answerKeyUrl) {
       try {
-        const { answerKey, studentAnswers, bubbleCenters } =
-          await extractOmrJsonFromUrls({
-            answerKeyUrl,
-            filledOmrUrl: newSubmission.filledOmr?.url,
-            submissionId: String(newSubmission._id),
-            templateUrl: exam?.omrSheet?.url,
-            bubbleCenters: exam?.omrTemplate?.bubbleCenters,
-          });
-
-        const evaluation = evaluateOmrUtil({
+        const {
           answerKey,
           studentAnswers,
+          bubbleCenters,
+          evaluation: pyEval,
+        } = await extractOmrJsonFromUrls({
+          answerKeyUrl,
+          filledOmrUrl: newSubmission.filledOmr?.url,
+          submissionId: String(newSubmission._id),
+          templateUrl: exam?.omrSheet?.url,
+          bubbleCenters: exam?.omrTemplate?.bubbleCenters,
           scoringConfig: exam?.scoringConfig,
         });
+
+        const evaluation =
+          pyEval ||
+          evaluateOmrUtil({
+            answerKey,
+            studentAnswers,
+            scoringConfig: exam?.scoringConfig,
+          });
         newSubmission.detectedMarks = studentAnswers;
         newSubmission.evaluation = evaluation;
+        newSubmission.scoringConfig = exam?.scoringConfig;
         await newSubmission.save();
 
         if (
@@ -374,23 +382,31 @@ export const getExamResult = async (req, res) => {
       const filledOmrUrl = submission.filledOmr?.url;
 
       try {
-        const { answerKey, studentAnswers, bubbleCenters } =
-          await extractOmrJsonFromUrls({
-            answerKeyUrl,
-            filledOmrUrl,
-            submissionId,
-            templateUrl: exam?.omrSheet?.url,
-            bubbleCenters: exam?.omrTemplate?.bubbleCenters,
-          });
-
-        const evaluation = evaluateOmrUtil({
+        const {
           answerKey,
           studentAnswers,
+          bubbleCenters,
+          evaluation: pyEval,
+        } = await extractOmrJsonFromUrls({
+          answerKeyUrl,
+          filledOmrUrl,
+          submissionId,
+          templateUrl: exam?.omrSheet?.url,
+          bubbleCenters: exam?.omrTemplate?.bubbleCenters,
           scoringConfig: exam?.scoringConfig,
         });
 
+        const evaluation =
+          pyEval ||
+          evaluateOmrUtil({
+            answerKey,
+            studentAnswers,
+            scoringConfig: exam?.scoringConfig,
+          });
+
         submission.detectedMarks = studentAnswers;
         submission.evaluation = evaluation;
+        submission.scoringConfig = exam?.scoringConfig;
         await submission.save();
 
         if (

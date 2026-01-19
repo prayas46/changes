@@ -52,12 +52,66 @@ const pickPythonCandidates = () => {
   return list;
 };
 
+const normalizePythonEvaluation = (parsed) => {
+  const subjectWise =
+    parsed?.subjectWiseMarks && typeof parsed.subjectWiseMarks === "object"
+      ? parsed.subjectWiseMarks
+      : {};
+
+  const physics = Number(subjectWise?.Physics?.marks) || 0;
+  const chemistry = Number(subjectWise?.Chemistry?.marks) || 0;
+  const biology = Number(subjectWise?.Biology?.marks) || 0;
+
+  const sectionMarks = [
+    {
+      name: "Physics",
+      marks: physics,
+      correctCount: Number(subjectWise?.Physics?.correctCount) || 0,
+      incorrectCount: Number(subjectWise?.Physics?.incorrectCount) || 0,
+      unattemptedCount: Number(subjectWise?.Physics?.unattemptedCount) || 0,
+    },
+    {
+      name: "Chemistry",
+      marks: chemistry,
+      correctCount: Number(subjectWise?.Chemistry?.correctCount) || 0,
+      incorrectCount: Number(subjectWise?.Chemistry?.incorrectCount) || 0,
+      unattemptedCount: Number(subjectWise?.Chemistry?.unattemptedCount) || 0,
+    },
+    {
+      name: "Biology",
+      marks: biology,
+      correctCount: Number(subjectWise?.Biology?.correctCount) || 0,
+      incorrectCount: Number(subjectWise?.Biology?.incorrectCount) || 0,
+      unattemptedCount: Number(subjectWise?.Biology?.unattemptedCount) || 0,
+    },
+  ];
+
+  return {
+    physicsMarks: physics,
+    chemistryMarks: chemistry,
+    biologyMarks: biology,
+    totalMarks: Number(parsed?.totalScore) || 0,
+    totalPossibleMarks:
+      parsed?.totalPossible != null ? Number(parsed.totalPossible) : undefined,
+    correctCount: Number(parsed?.correctCount) || 0,
+    incorrectCount: Number(parsed?.incorrectCount) || 0,
+    unattemptedCount: Number(parsed?.unattemptedCount) || 0,
+    wrongQuestions: Array.isArray(parsed?.wrongQuestions)
+      ? parsed.wrongQuestions
+      : [],
+    sectionMarks,
+    subjectWiseMarks: parsed?.subjectWiseMarks,
+    sectionWiseMarks: parsed?.sectionWiseMarks,
+  };
+};
+
 export const extractOmrJsonFromUrls = async ({
   answerKeyUrl,
   filledOmrUrl,
   submissionId,
   templateUrl,
   bubbleCenters,
+  scoringConfig,
 }) => {
   if (!answerKeyUrl) {
     throw new Error("Answer key is not uploaded yet");
@@ -86,8 +140,10 @@ export const extractOmrJsonFromUrls = async ({
     "..",
     "..",
     "omr",
-    "omr_pipeline.py"
+    "omr_pipeline.py",
   );
+
+  const newCliPath = path.resolve(__dirname, "..", "..", "omr", "main.py");
 
   const pythonCandidates = pickPythonCandidates();
 
@@ -133,8 +189,66 @@ export const extractOmrJsonFromUrls = async ({
 
         if (!bubbleCentersUsed) {
           throw new Error(
-            "Failed to detect bubble centers from the provided OMR template. Upload a clear blank OMR image."
+            "Failed to detect bubble centers from the provided OMR template. Upload a clear blank OMR image.",
           );
+        }
+
+        const shouldUseNewCli =
+          String(process.env.OMR_USE_PY_MAIN || "").trim() === "1";
+
+        if (shouldUseNewCli) {
+          const cfgPath = path.join(tmpDir, `${submissionId}-neet-config.json`);
+          await fs.writeFile(
+            cfgPath,
+            JSON.stringify(
+              {
+                scoring: scoringConfig || undefined,
+                bubbleCenters: bubbleCentersUsed,
+                answerKeyImage: answerPath,
+                templateImage: templatePath || undefined,
+              },
+              null,
+              2,
+            ),
+          );
+
+          const run = await runPython(cmd, [
+            newCliPath,
+            "--image",
+            studentPath,
+            "--config",
+            cfgPath,
+          ]);
+
+          const parsed = JSON.parse(run.stdout);
+          if (!parsed || typeof parsed !== "object") {
+            throw new Error("Python OMR main.py returned invalid JSON");
+          }
+
+          const answerKey = parsed.answerKey;
+          const studentAnswers = parsed.studentAnswers;
+          const bubbleCentersOut = parsed.bubbleCenters || bubbleCentersUsed;
+
+          if (!Array.isArray(answerKey) || answerKey.length === 0) {
+            throw new Error(
+              "Python OMR main.py returned empty answerKey. Ensure the scan is clear and the OMR template can be detected.",
+            );
+          }
+
+          if (!Array.isArray(studentAnswers) || studentAnswers.length === 0) {
+            throw new Error(
+              "Python OMR main.py returned no detected marks for the student sheet. Ensure the scan is clear/aligned and matches the instructor template.",
+            );
+          }
+
+          bubbleCentersResult = bubbleCentersOut;
+          lastErr = null;
+          return {
+            answerKey,
+            studentAnswers,
+            bubbleCenters: bubbleCentersResult,
+            evaluation: normalizePythonEvaluation(parsed),
+          };
         }
 
         if (
@@ -146,7 +260,7 @@ export const extractOmrJsonFromUrls = async ({
           bubbleMapPath = path.join(tmpDir, `${submissionId}-bubble-map.json`);
           await fs.writeFile(
             bubbleMapPath,
-            JSON.stringify({ bubbleCenters: bubbleCentersUsed }, null, 2)
+            JSON.stringify({ bubbleCenters: bubbleCentersUsed }, null, 2),
           );
         }
 
@@ -187,13 +301,13 @@ export const extractOmrJsonFromUrls = async ({
 
     if (!Array.isArray(answerKey) || answerKey.length === 0) {
       throw new Error(
-        "OMR pipeline returned empty answerKey. Ensure the scan is clear and the OMR template can be detected."
+        "OMR pipeline returned empty answerKey. Ensure the scan is clear and the OMR template can be detected.",
       );
     }
 
     if (!Array.isArray(studentAnswers) || studentAnswers.length === 0) {
       throw new Error(
-        "OMR pipeline returned no detected marks for the student sheet. Ensure the scan is clear/aligned and matches the instructor template."
+        "OMR pipeline returned no detected marks for the student sheet. Ensure the scan is clear/aligned and matches the instructor template.",
       );
     }
 
@@ -204,6 +318,9 @@ export const extractOmrJsonFromUrls = async ({
       fs.rm(studentPath, { force: true }),
       templatePath ? fs.rm(templatePath, { force: true }) : Promise.resolve(),
       fs.rm(path.join(tmpDir, `${submissionId}-bubble-map.json`), {
+        force: true,
+      }),
+      fs.rm(path.join(tmpDir, `${submissionId}-neet-config.json`), {
         force: true,
       }),
     ]);
